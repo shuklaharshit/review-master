@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import type { TaskKind } from '@shared/types'
 
+/** Max activity lines retained per task (the modal only shows the last dozen). */
+export const MAX_TASK_LOGS = 100
+
 export type TaskStatus = 'running' | 'completed' | 'failed' | 'interrupted'
 
 export interface TaskState {
@@ -65,7 +68,10 @@ export const useTaskStore = create<TaskStoreState>((set) => ({
   appendLog: (taskId, message) =>
     set((s) => {
       const t = ensure(s.tasks, taskId)
-      return { tasks: { ...s.tasks, [taskId]: { ...t, logs: [...t.logs, message] } } }
+      // Cap the activity tail; the modal only renders the last dozen lines and
+      // long turns can emit hundreds of progress messages.
+      const logs = [...t.logs, message].slice(-MAX_TASK_LOGS)
+      return { tasks: { ...s.tasks, [taskId]: { ...t, logs } } }
     }),
 
   appendContent: (taskId, text) =>

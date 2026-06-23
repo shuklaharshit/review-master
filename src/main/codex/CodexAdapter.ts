@@ -16,6 +16,7 @@ import { logger } from '../app/Logger'
 import type { CodexProcessManager } from './CodexProcessManager'
 import type { RawCodexNotification } from './codexEvents'
 import { isAgentMessageCompleted, isAgentMessageDelta } from './codexEvents'
+import { ActivityTranslator } from './codexActivity'
 import type { ThreadStartResult, TurnStartResult } from './codexTypes'
 
 export interface RunTurnParams {
@@ -24,6 +25,7 @@ export interface RunTurnParams {
   reasoningEffort: ReasoningEffort
   prompt: string
   onDelta?: (text: string) => void
+  onActivity?: (message: string) => void
   signal?: AbortSignal
 }
 
@@ -100,7 +102,7 @@ export class CodexAdapter {
   constructor(private readonly manager: CodexProcessManager) {}
 
   async runTurn(params: RunTurnParams): Promise<RunTurnResult> {
-    const { taskId, model, reasoningEffort, prompt, onDelta, signal } = params
+    const { taskId, model, reasoningEffort, prompt, onDelta, onActivity, signal } = params
 
     if (signal?.aborted) {
       return { text: '', interrupted: true }
@@ -122,6 +124,17 @@ export class CodexAdapter {
     let turnId: string | undefined
     let settled = false
     let interrupted = false
+
+    // Live-activity feed: a pure translator turns notifications into UI lines.
+    const activity = new ActivityTranslator()
+    const emitActivity = (message: string): void => {
+      if (!message) return
+      try {
+        onActivity?.(message)
+      } catch (error) {
+        logger.debug('[codex] onActivity threw:', String(error))
+      }
+    }
 
     return await new Promise<RunTurnResult>((resolve, reject) => {
       const cleanup = (): void => {
@@ -173,6 +186,9 @@ export class CodexAdapter {
           fail(appError('codex_system_error', sysErr, true, { taskId, threadId, turnId }))
           return
         }
+
+        // Live-activity feed (informational; never settles the turn).
+        for (const line of activity.translate(n, Date.now())) emitActivity(line)
 
         if (isAgentMessageDelta(method)) {
           const delta = extractDeltaText(np)

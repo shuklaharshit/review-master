@@ -138,6 +138,7 @@ export class PreflightAnalysisService {
         model: settings.defaultPreflightModel,
         reasoningEffort: settings.defaultPreflightReasoningEffort,
         prompt,
+        onActivity: (message) => this.events.emit({ type: 'task.log', taskId, kind: 'preflight', message }),
         signal
       })
       if (result.interrupted) {
@@ -157,6 +158,7 @@ export class PreflightAnalysisService {
           model: settings.defaultPreflightModel,
           reasoningEffort: settings.defaultPreflightReasoningEffort,
           prompt: buildJsonRepairPrompt(result.text, PREFLIGHT_SCHEMA_HINT),
+          onActivity: (message) => this.events.emit({ type: 'task.log', taskId, kind: 'preflight', message }),
           signal
         })
         if (repair.interrupted) {

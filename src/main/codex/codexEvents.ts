@@ -35,7 +35,12 @@ export const IGNORED_NOTIFICATIONS = [
   'session/configChanged',
   'account/rateLimits/updated',
   'thread/tokenUsage/updated',
-  'item/started'
+  'item/started',
+  // Consumed by the ActivityTranslator for the live-activity feed. Listed here
+  // so routeNotification does not log them as "unhandled" on every chunk.
+  'item/reasoning/summaryTextDelta',
+  'item/reasoning/textDelta',
+  'item/reasoning/summaryPartAdded'
 ] as const
 
 export type SupportedNotification = (typeof SUPPORTED_NOTIFICATIONS)[number]
@@ -50,6 +55,14 @@ export function isSupportedNotification(method: string): boolean {
 
 export function isIgnoredNotification(method: string): boolean {
   return IGNORED_SET.has(method)
+}
+
+/**
+ * Whether routeNotification should debug-log this method as "unhandled".
+ * Everything is still forwarded to the adapter; this only governs log noise.
+ */
+export function shouldLogUnhandled(method: string): boolean {
+  return !isSupportedNotification(method) && !isIgnoredNotification(method)
 }
 
 /** Normalise both camelCase and snake_case delta/completed methods. */

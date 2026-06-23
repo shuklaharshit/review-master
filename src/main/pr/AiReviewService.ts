@@ -178,6 +178,7 @@ export class AiReviewService {
         reasoningEffort: settings.defaultReviewReasoningEffort,
         prompt,
         signal,
+        onActivity: (message) => this.events.emit({ type: 'task.log', taskId, kind: 'review', message }),
         onDelta: (text) => {
           accumulated += text
           charsSinceSave += text.length
