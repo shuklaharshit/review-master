@@ -6,6 +6,14 @@ Review Master is an open-source Electron desktop app for developers who review p
 
 > Review Master turns a chaotic PR diff into a guided review workflow: context first, files in the right order, risks surfaced early, and a final editable markdown review only after the human has reviewed the change.
 
+## Documentation
+
+- [`AGENTS.md`](./AGENTS.md) — start here. Orientation for agents/humans: repo map, commands, invariants, gotchas.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — process model, the contract layer, key data flows, the Codex integration.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — setup + recipes (add an IPC method, add a provider, debug Codex), testing.
+- [`docs/adr/`](./docs/adr/) — architecture decision records (the "why" behind load-bearing choices).
+- `mvp-requirements.md` — the original product spec (intent; the code is the source of truth).
+
 ## Architecture
 
 A trusted Electron **main process** is the control plane. The **renderer** never touches tokens, Codex, git, the filesystem, or the GitHub/Codex APIs directly — it talks only to a typed IPC bridge.
