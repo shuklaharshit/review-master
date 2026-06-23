@@ -45,6 +45,7 @@ export function ReviewWorkspace(): JSX.Element {
 
   const preflightTask = useTaskStore((s) => (preflightTaskId ? s.tasks[preflightTaskId] : undefined))
   const reviewTask = useTaskStore((s) => (reviewTaskId ? s.tasks[reviewTaskId] : undefined))
+  const clearTask = useTaskStore((s) => s.clearTask)
 
   // Sync loaded workspace into the store, resetting UI state on snapshot change.
   useEffect(() => {
@@ -56,16 +57,19 @@ export function ReviewWorkspace(): JSX.Element {
     }
   }, [workspace, storedSnapshotId, setWorkspace, resetUi])
 
-  // React to preflight task completion.
+  // React to preflight task completion. Evict the finished task so its activity
+  // log doesn't stay resident for the rest of the session.
   useEffect(() => {
     if (!preflightTask) return
     if (preflightTask.status === 'completed') {
       if (ref) void invalidateWorkspace(ref)
+      clearTask(preflightTask.taskId)
       setPreflightTaskId(null)
     } else if (preflightTask.status === 'failed' || preflightTask.status === 'interrupted') {
+      clearTask(preflightTask.taskId)
       setPreflightTaskId(null)
     }
-  }, [preflightTask, ref])
+  }, [preflightTask, ref, clearTask])
 
   // React to review task completion → refresh + open draft modal.
   useEffect(() => {
@@ -76,11 +80,13 @@ export function ReviewWorkspace(): JSX.Element {
         void qc.invalidateQueries({ queryKey: queryKeys.draft(ref) })
       }
       setShowDraft(true)
+      clearTask(reviewTask.taskId)
       setReviewTaskId(null)
     } else if (reviewTask.status === 'failed' || reviewTask.status === 'interrupted') {
+      clearTask(reviewTask.taskId)
       setReviewTaskId(null)
     }
-  }, [reviewTask, ref])
+  }, [reviewTask, ref, clearTask])
 
   if (!ref) {
     return <Centered>No pull request selected.</Centered>

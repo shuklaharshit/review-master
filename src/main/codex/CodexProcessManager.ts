@@ -19,7 +19,7 @@ import type { CodexAccount, CodexModel, ReasoningEffort } from '../../shared/typ
 import { appError } from '../../shared/result'
 import { logger } from '../app/Logger'
 import type { RawCodexNotification } from './codexEvents'
-import { isIgnoredNotification, isSupportedNotification } from './codexEvents'
+import { shouldLogUnhandled } from './codexEvents'
 import type {
   AccountReadResult,
   CodexInitializeResult,
@@ -339,7 +339,7 @@ export class CodexProcessManager {
     // to act on; progress notifications (reasoning deltas, item lifecycle, token
     // usage) power the live-activity feed and must not be dropped here. The
     // SUPPORTED/IGNORED lists are now used only to keep the debug log quiet.
-    if (!isSupportedNotification(n.method) && !isIgnoredNotification(n.method)) {
+    if (shouldLogUnhandled(n.method)) {
       logger.debug('[codex] unhandled notification', n.method)
     }
     try {

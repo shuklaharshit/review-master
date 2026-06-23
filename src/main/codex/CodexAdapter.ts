@@ -16,6 +16,7 @@ import { logger } from '../app/Logger'
 import type { CodexProcessManager } from './CodexProcessManager'
 import type { RawCodexNotification } from './codexEvents'
 import { isAgentMessageCompleted, isAgentMessageDelta } from './codexEvents'
+import { ActivityTranslator } from './codexActivity'
 import type { ThreadStartResult, TurnStartResult } from './codexTypes'
 
 export interface RunTurnParams {
@@ -26,17 +27,6 @@ export interface RunTurnParams {
   onDelta?: (text: string) => void
   onActivity?: (message: string) => void
   signal?: AbortSignal
-}
-
-/** Friendly labels for ThreadItem.type lifecycle notifications. */
-const ITEM_LABELS: Record<string, string> = {
-  reasoning: 'Reasoning',
-  agentMessage: 'Writing response',
-  plan: 'Planning',
-  commandExecution: 'Running a command',
-  fileChange: 'Preparing file changes',
-  mcpToolCall: 'Calling a tool',
-  webSearch: 'Searching the web'
 }
 
 export interface RunTurnResult {
@@ -135,28 +125,14 @@ export class CodexAdapter {
     let settled = false
     let interrupted = false
 
-    // Live-activity state.
-    let reasoningBuf = ''
-    let writingStarted = false
-    let lastTokenEmit = 0
+    // Live-activity feed: a pure translator turns notifications into UI lines.
+    const activity = new ActivityTranslator()
     const emitActivity = (message: string): void => {
       if (!message) return
       try {
         onActivity?.(message)
       } catch (error) {
         logger.debug('[codex] onActivity threw:', String(error))
-      }
-    }
-    const flushReasoning = (force = false): void => {
-      const text = reasoningBuf.trim()
-      if (!text) return
-      if (force || reasoningBuf.includes('\n') || reasoningBuf.length > 120) {
-        // Emit the latest complete-ish reasoning line(s).
-        for (const line of text.split('\n')) {
-          const t = line.trim()
-          if (t) emitActivity(t)
-        }
-        reasoningBuf = ''
       }
     }
 
@@ -211,49 +187,12 @@ export class CodexAdapter {
           return
         }
 
-        // --- Live-activity feed (informational; never settles the turn) ---
-        if (method === 'turn/started') {
-          emitActivity('Codex started analysing the diff…')
-          return
-        }
-        if (method === 'item/reasoning/summaryTextDelta' || method === 'item/reasoning/textDelta') {
-          const d = (np as Record<string, unknown>)?.delta
-          if (typeof d === 'string' && d) {
-            reasoningBuf += d
-            flushReasoning()
-          }
-          return
-        }
-        if (method === 'item/started') {
-          const type = ((np as Record<string, unknown>)?.item as { type?: string } | undefined)?.type
-          const label = type ? ITEM_LABELS[type] : undefined
-          if (label && type !== 'agentMessage') emitActivity(`${label}…`)
-          return
-        }
-        if (method === 'item/completed') {
-          flushReasoning(true)
-          return
-        }
-        if (method === 'thread/tokenUsage/updated') {
-          const usage = (np as Record<string, unknown>)?.tokenUsage as { total?: Record<string, number> } | undefined
-          const total = usage?.total ?? {}
-          const out = total.outputTokens ?? total.output_tokens
-          const now = Date.now()
-          if (typeof out === 'number' && now - lastTokenEmit > 1500) {
-            lastTokenEmit = now
-            emitActivity(`Generating… (${out.toLocaleString()} output tokens)`)
-          }
-          return
-        }
+        // Live-activity feed (informational; never settles the turn).
+        for (const line of activity.translate(n, Date.now())) emitActivity(line)
 
         if (isAgentMessageDelta(method)) {
           const delta = extractDeltaText(np)
           if (delta) {
-            if (!writingStarted) {
-              writingStarted = true
-              flushReasoning(true)
-              emitActivity('Writing the analysis…')
-            }
             buffer += delta
             try {
               onDelta?.(delta)
