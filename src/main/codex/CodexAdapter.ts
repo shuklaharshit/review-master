@@ -24,7 +24,19 @@ export interface RunTurnParams {
   reasoningEffort: ReasoningEffort
   prompt: string
   onDelta?: (text: string) => void
+  onActivity?: (message: string) => void
   signal?: AbortSignal
+}
+
+/** Friendly labels for ThreadItem.type lifecycle notifications. */
+const ITEM_LABELS: Record<string, string> = {
+  reasoning: 'Reasoning',
+  agentMessage: 'Writing response',
+  plan: 'Planning',
+  commandExecution: 'Running a command',
+  fileChange: 'Preparing file changes',
+  mcpToolCall: 'Calling a tool',
+  webSearch: 'Searching the web'
 }
 
 export interface RunTurnResult {
@@ -100,7 +112,7 @@ export class CodexAdapter {
   constructor(private readonly manager: CodexProcessManager) {}
 
   async runTurn(params: RunTurnParams): Promise<RunTurnResult> {
-    const { taskId, model, reasoningEffort, prompt, onDelta, signal } = params
+    const { taskId, model, reasoningEffort, prompt, onDelta, onActivity, signal } = params
 
     if (signal?.aborted) {
       return { text: '', interrupted: true }
@@ -122,6 +134,31 @@ export class CodexAdapter {
     let turnId: string | undefined
     let settled = false
     let interrupted = false
+
+    // Live-activity state.
+    let reasoningBuf = ''
+    let writingStarted = false
+    let lastTokenEmit = 0
+    const emitActivity = (message: string): void => {
+      if (!message) return
+      try {
+        onActivity?.(message)
+      } catch (error) {
+        logger.debug('[codex] onActivity threw:', String(error))
+      }
+    }
+    const flushReasoning = (force = false): void => {
+      const text = reasoningBuf.trim()
+      if (!text) return
+      if (force || reasoningBuf.includes('\n') || reasoningBuf.length > 120) {
+        // Emit the latest complete-ish reasoning line(s).
+        for (const line of text.split('\n')) {
+          const t = line.trim()
+          if (t) emitActivity(t)
+        }
+        reasoningBuf = ''
+      }
+    }
 
     return await new Promise<RunTurnResult>((resolve, reject) => {
       const cleanup = (): void => {
@@ -174,9 +211,49 @@ export class CodexAdapter {
           return
         }
 
+        // --- Live-activity feed (informational; never settles the turn) ---
+        if (method === 'turn/started') {
+          emitActivity('Codex started analysing the diff…')
+          return
+        }
+        if (method === 'item/reasoning/summaryTextDelta' || method === 'item/reasoning/textDelta') {
+          const d = (np as Record<string, unknown>)?.delta
+          if (typeof d === 'string' && d) {
+            reasoningBuf += d
+            flushReasoning()
+          }
+          return
+        }
+        if (method === 'item/started') {
+          const type = ((np as Record<string, unknown>)?.item as { type?: string } | undefined)?.type
+          const label = type ? ITEM_LABELS[type] : undefined
+          if (label && type !== 'agentMessage') emitActivity(`${label}…`)
+          return
+        }
+        if (method === 'item/completed') {
+          flushReasoning(true)
+          return
+        }
+        if (method === 'thread/tokenUsage/updated') {
+          const usage = (np as Record<string, unknown>)?.tokenUsage as { total?: Record<string, number> } | undefined
+          const total = usage?.total ?? {}
+          const out = total.outputTokens ?? total.output_tokens
+          const now = Date.now()
+          if (typeof out === 'number' && now - lastTokenEmit > 1500) {
+            lastTokenEmit = now
+            emitActivity(`Generating… (${out.toLocaleString()} output tokens)`)
+          }
+          return
+        }
+
         if (isAgentMessageDelta(method)) {
           const delta = extractDeltaText(np)
           if (delta) {
+            if (!writingStarted) {
+              writingStarted = true
+              flushReasoning(true)
+              emitActivity('Writing the analysis…')
+            }
             buffer += delta
             try {
               onDelta?.(delta)

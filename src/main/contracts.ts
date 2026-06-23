@@ -20,6 +20,8 @@ export interface CodexRunOptions {
   prompt: string
   /** Called as streamed assistant text arrives. */
   onDelta?: (text: string) => void
+  /** Called with human-readable progress lines (reasoning, item lifecycle, tokens) for the live-activity feed. */
+  onActivity?: (message: string) => void
   signal?: AbortSignal
 }
 

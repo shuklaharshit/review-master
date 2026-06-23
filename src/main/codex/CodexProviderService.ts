@@ -219,6 +219,7 @@ export class CodexProviderService implements CodexRuntime {
         reasoningEffort: opts.reasoningEffort,
         prompt: opts.prompt,
         onDelta: opts.onDelta,
+        onActivity: opts.onActivity,
         signal: controller.signal
       })
       return { text: result.text, interrupted: result.interrupted }
