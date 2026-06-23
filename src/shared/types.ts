@@ -1,0 +1,618 @@
+// ============================================================================
+// Review Master — Shared domain types (single source of truth across processes)
+// ============================================================================
+
+export type GitProviderId = 'github' | 'gitlab' | 'bitbucket'
+
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
+
+// ----------------------------------------------------------------------------
+// Bootstrap / onboarding
+// ----------------------------------------------------------------------------
+
+export interface CodexStatus {
+  cliInstalled: boolean
+  version?: string
+  binaryPath?: string
+  authenticated: boolean
+  account?: CodexAccount
+  serverState: CodexSessionState
+  error?: string
+}
+
+export type CodexSessionState = 'starting' | 'ready' | 'error' | 'stopped' | 'unknown'
+
+export interface CodexAccount {
+  email?: string
+  plan?: string
+  organization?: string
+  authMethod?: string
+}
+
+export interface CodexModel {
+  id: string
+  displayName?: string
+  supportedReasoningEfforts?: ReasoningEffort[]
+}
+
+export interface GitStatus {
+  available: boolean
+  version?: string
+}
+
+export interface BootstrapStatus {
+  appVersion: string
+  codex: CodexStatus
+  git: GitStatus
+  hasAccounts: boolean
+  accounts: ConnectedAccount[]
+  ready: boolean
+}
+
+// ----------------------------------------------------------------------------
+// Accounts
+// ----------------------------------------------------------------------------
+
+export interface ConnectedAccount {
+  id: string
+  providerId: GitProviderId
+  providerAccountId: string
+  login: string
+  displayName?: string
+  avatarUrl?: string
+  tokenKey: string
+  scopes: string[]
+  createdAt: string
+  updatedAt: string
+  lastUsedAt?: string
+  needsReauth?: boolean
+}
+
+export interface AuthFlowStartResult {
+  flowId: string
+  userCode: string
+  verificationUri: string
+  expiresInSeconds: number
+  intervalSeconds: number
+}
+
+export interface RemoveAccountOptions {
+  removeCachedData?: boolean
+}
+
+// ----------------------------------------------------------------------------
+// Repositories
+// ----------------------------------------------------------------------------
+
+export interface Repository {
+  id: string
+  providerId: GitProviderId
+  accountId: string
+  providerRepoId: string
+  owner: string
+  name: string
+  fullName: string
+  private: boolean
+  defaultBranch?: string
+  htmlUrl?: string
+  cloneUrl?: string
+  sshUrl?: string
+  description?: string
+  language?: string
+  updatedAt?: string
+  lastSyncedAt?: string
+}
+
+export interface ListRepositoriesParams {
+  accountId: string
+  page?: number
+  perPage?: number
+  sort?: 'updated' | 'pushed' | 'full_name'
+}
+
+export interface SearchRepositoriesParams {
+  accountId: string
+  query: string
+  page?: number
+  perPage?: number
+}
+
+export interface PaginatedResult<T> {
+  items: T[]
+  page: number
+  perPage: number
+  hasMore: boolean
+  total?: number
+}
+
+// ----------------------------------------------------------------------------
+// Pull requests
+// ----------------------------------------------------------------------------
+
+export type PullRequestState = 'open' | 'closed' | 'merged'
+export type PullRequestFilter = 'open' | 'closed' | 'merged' | 'all'
+
+export interface UserSummary {
+  login: string
+  avatarUrl?: string
+  htmlUrl?: string
+}
+
+export interface PullRequest {
+  id: string
+  providerId: GitProviderId
+  accountId: string
+  repoId: string
+  providerPrId: string
+  number: number
+  title: string
+  body?: string
+  state: PullRequestState
+  draft?: boolean
+  author?: UserSummary
+  baseBranch: string
+  headBranch: string
+  baseSha: string
+  headSha: string
+  htmlUrl?: string
+  createdAt?: string
+  updatedAt?: string
+  lastSyncedAt?: string
+  /** Locally derived review state for list badges. */
+  localReviewState?: LocalPrReviewState
+}
+
+export interface ListPullRequestsParams {
+  accountId: string
+  repoId: string
+  owner: string
+  repo: string
+  filter?: PullRequestFilter
+  query?: string
+  page?: number
+  perPage?: number
+}
+
+export interface PullRequestRef {
+  accountId: string
+  repoId: string
+  owner: string
+  repo: string
+  number: number
+}
+
+export interface CommitSummary {
+  sha: string
+  message: string
+  author?: string
+  authoredAt?: string
+}
+
+export interface PullRequestFile {
+  path: string
+  oldPath?: string
+  status: 'added' | 'modified' | 'removed' | 'renamed' | 'copied' | 'binary'
+  additions: number
+  deletions: number
+  changes: number
+  patch?: string
+  isBinary?: boolean
+}
+
+export interface CheckSummary {
+  name: string
+  status: 'queued' | 'in_progress' | 'completed' | 'unknown'
+  conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  detailsUrl?: string
+}
+
+export interface ReviewSummary {
+  login: string
+  avatarUrl?: string
+  state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | 'DISMISSED'
+  submittedAt?: string
+}
+
+export interface LabelSummary {
+  name: string
+  color?: string
+}
+
+export interface ReviewContext {
+  pr: PullRequestDetail
+  commits: CommitSummary[]
+  files: PullRequestFile[]
+  checks: CheckSummary[]
+  reviews: ReviewSummary[]
+  labels: LabelSummary[]
+  assignees: UserSummary[]
+  requestedReviewers: UserSummary[]
+}
+
+export interface PullRequestDetail extends PullRequest {
+  commits?: CommitSummary[]
+  filesChanged?: number
+  additions?: number
+  deletions?: number
+  mergeable?: boolean | null
+  checks?: CheckSummary[]
+  reviews?: ReviewSummary[]
+  labels?: LabelSummary[]
+  assignees?: UserSummary[]
+  requestedReviewers?: UserSummary[]
+}
+
+// ----------------------------------------------------------------------------
+// Normalised diff model
+// ----------------------------------------------------------------------------
+
+export type DiffFileStatus = 'added' | 'modified' | 'removed' | 'renamed' | 'copied' | 'binary'
+
+export interface DiffLine {
+  type: 'context' | 'added' | 'removed'
+  oldLineNumber?: number
+  newLineNumber?: number
+  content: string
+}
+
+export interface DiffHunk {
+  header: string
+  oldStart: number
+  oldLines: number
+  newStart: number
+  newLines: number
+  lines: DiffLine[]
+}
+
+export interface NormalizedDiffFile {
+  path: string
+  oldPath?: string
+  status: DiffFileStatus
+  additions: number
+  deletions: number
+  hunks: DiffHunk[]
+  patch?: string
+  isLarge?: boolean
+  isGenerated?: boolean
+  isBinary?: boolean
+  language?: string
+}
+
+export interface NormalizedDiff {
+  files: NormalizedDiffFile[]
+  source: 'git' | 'github_api'
+  totalAdditions: number
+  totalDeletions: number
+  truncated?: boolean
+}
+
+// ----------------------------------------------------------------------------
+// Snapshots
+// ----------------------------------------------------------------------------
+
+export interface PrCommitSnapshot {
+  id: string
+  pullRequestId: string
+  baseSha: string
+  headSha: string
+  commitIds: string[]
+  filesHash: string
+  createdAt: string
+}
+
+// ----------------------------------------------------------------------------
+// Preflight analysis
+// ----------------------------------------------------------------------------
+
+export type PreflightStatus = 'running' | 'completed' | 'failed' | 'stale' | 'interrupted'
+
+export type GroupPriority = 'low' | 'medium' | 'high' | 'critical'
+
+export type GroupCategory =
+  | 'entry_point'
+  | 'api_contract'
+  | 'business_logic'
+  | 'data_model'
+  | 'database_migration'
+  | 'ui'
+  | 'state_management'
+  | 'integration'
+  | 'configuration'
+  | 'test'
+  | 'documentation'
+  | 'build_tooling'
+  | 'security'
+  | 'performance'
+  | 'workflow'
+  | 'other'
+
+export type RiskType =
+  | 'bug'
+  | 'security'
+  | 'regression'
+  | 'performance'
+  | 'maintainability'
+  | 'test_gap'
+  | 'data_loss'
+  | 'api_contract'
+  | 'accessibility'
+  | 'configuration'
+  | 'deployment'
+  | 'concurrency'
+  | 'compatibility'
+  | 'migration'
+  | 'dependency'
+  | 'other'
+
+export type RiskSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type Confidence = 'low' | 'medium' | 'high'
+
+export interface ReviewGroupFile {
+  order: number
+  fileReference: string
+  path: string
+  oldPath?: string
+  title: string
+  details: string
+  reasonForPosition: string
+  priority: GroupPriority
+  status: DiffFileStatus
+  additions?: number
+  deletions?: number
+  relatedFiles?: string[]
+}
+
+export interface ReviewGroup {
+  order: number
+  title: string
+  shortLabel?: string
+  explanation: string
+  readExplanation: string
+  priority: GroupPriority
+  category: GroupCategory
+  stats: { fileCount: number; additions: number; deletions: number }
+  files: ReviewGroupFile[]
+}
+
+export interface RiskFinding {
+  title: string
+  type: RiskType
+  severity: RiskSeverity
+  details: string
+  fileReferences?: string[]
+  confidence: Confidence
+  relatedGroupOrders?: number[]
+}
+
+export interface PreflightAnalysis {
+  schemaVersion: '2.0'
+  pr: {
+    provider: 'github'
+    repoFullName: string
+    pullRequestNumber: number
+    title: string
+    baseBranch: string
+    headBranch: string
+    baseSha: string
+    headSha: string
+    analysedCommitIds: string[]
+  }
+  summary: {
+    shortTitle: string
+    overview: string
+    estimatedReviewComplexity: 'low' | 'medium' | 'high' | 'very_high'
+    suggestedReviewStrategy: string
+    totalFiles: number
+    totalAdditions: number
+    totalDeletions: number
+  }
+  reviewGroups: ReviewGroup[]
+  riskFindings: RiskFinding[]
+  assumptions?: string[]
+  warnings?: string[]
+}
+
+export interface PreflightRecord {
+  id: string
+  pullRequestId: string
+  snapshotId: string
+  model: string
+  reasoningEffort: ReasoningEffort
+  status: PreflightStatus
+  analysis?: PreflightAnalysis | null
+  rawOutput?: string | null
+  errorMessage?: string | null
+  createdAt: string
+  completedAt?: string | null
+}
+
+// ----------------------------------------------------------------------------
+// Review drafts & submission
+// ----------------------------------------------------------------------------
+
+export type ReviewDraftStatus = 'running' | 'draft' | 'submitted' | 'failed' | 'stale' | 'interrupted'
+
+export interface ReviewDraft {
+  id: string
+  pullRequestId: string
+  snapshotId: string
+  preflightAnalysisId?: string
+  model: string
+  reasoningEffort: ReasoningEffort
+  userNotes?: string
+  markdown: string
+  status: ReviewDraftStatus
+  githubReviewId?: string
+  submittedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SubmittedReview {
+  githubReviewId: string
+  htmlUrl?: string
+  submittedAt: string
+}
+
+export type ReviewStatusValue = 'reviewed' | 'needs_rereview' | 'draft_available'
+
+export interface ReviewStatus {
+  id: string
+  pullRequestId: string
+  snapshotId: string
+  reviewDraftId?: string
+  status: ReviewStatusValue
+  reviewedHeadSha?: string
+  reviewedAt?: string
+  updatedAt: string
+}
+
+// ----------------------------------------------------------------------------
+// Local PR review state machine
+// ----------------------------------------------------------------------------
+
+export type LocalPrReviewState =
+  | 'new'
+  | 'preflight_running'
+  | 'preflight_ready'
+  | 'preflight_failed'
+  | 'preflight_stale'
+  | 'review_generating'
+  | 'draft_available'
+  | 'review_submitted'
+  | 'needs_rereview'
+
+// ----------------------------------------------------------------------------
+// Workspace
+// ----------------------------------------------------------------------------
+
+export interface WorkspaceState {
+  pr: PullRequestDetail
+  context: ReviewContext
+  diff: NormalizedDiff
+  snapshot: PrCommitSnapshot
+  preflight: PreflightRecord | null
+  draft: ReviewDraft | null
+  reviewStatus: ReviewStatus | null
+  reviewState: LocalPrReviewState
+  preflightStale: boolean
+  draftStale: boolean
+  gitAvailable: boolean
+}
+
+// ----------------------------------------------------------------------------
+// Tasks
+// ----------------------------------------------------------------------------
+
+export type TaskKind = 'preflight' | 'review'
+
+export interface TaskHandle {
+  taskId: string
+  kind: TaskKind
+}
+
+export interface RunPreflightParams {
+  ref: PullRequestRef
+  pullRequestId: string
+  snapshotId: string
+  force?: boolean
+}
+
+export interface GenerateReviewParams {
+  ref: PullRequestRef
+  pullRequestId: string
+  snapshotId: string
+  preflightAnalysisId?: string
+  userNotes?: string
+}
+
+export interface SaveDraftParams {
+  draftId: string
+  markdown: string
+}
+
+export interface SubmitDraftParams {
+  draftId: string
+  ref: PullRequestRef
+  event?: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
+}
+
+// ----------------------------------------------------------------------------
+// Settings
+// ----------------------------------------------------------------------------
+
+export interface AppSettings {
+  defaultPreflightModel: string
+  defaultPreflightReasoningEffort: ReasoningEffort
+  defaultReviewModel: string
+  defaultReviewReasoningEffort: ReasoningEffort
+  codexBinaryMode: 'auto' | 'custom'
+  codexBinaryPath?: string
+  autoCheckUpdates: boolean
+  activeAccountId?: string
+  devMode?: boolean
+}
+
+// ----------------------------------------------------------------------------
+// Updates
+// ----------------------------------------------------------------------------
+
+export type UpdateState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+  | 'unsupported'
+
+export interface UpdateStatus {
+  state: UpdateState
+  currentVersion: string
+  newVersion?: string
+  progressPercent?: number
+  message?: string
+  forced?: boolean
+}
+
+export interface VersionPolicy {
+  minimumSupportedVersion: string
+  message?: string
+  critical?: boolean
+}
+
+// ----------------------------------------------------------------------------
+// Review flags (future-friendly placeholder)
+// ----------------------------------------------------------------------------
+
+export interface ReviewFlag {
+  id: string
+  pullRequestId: string
+  snapshotId: string
+  title: string
+  details?: string
+  fileReference?: string
+  createdAt: string
+}
+
+// ----------------------------------------------------------------------------
+// App events (renderer consumes these only)
+// ----------------------------------------------------------------------------
+
+export type TaskPhase = string
+
+export type AppEvent =
+  | { type: 'codex.session.state.changed'; state: CodexSessionState; message?: string }
+  | { type: 'task.phase'; taskId: string; kind: TaskKind; phase: TaskPhase; phaseIndex: number; phaseCount: number }
+  | { type: 'task.log'; taskId: string; kind: TaskKind; message: string }
+  | { type: 'task.content.delta'; taskId: string; kind: TaskKind; text: string }
+  | { type: 'task.completed'; taskId: string; kind: TaskKind; resultId?: string }
+  | { type: 'task.failed'; taskId: string; kind: TaskKind; message: string; recoverable: boolean }
+  | { type: 'task.interrupted'; taskId: string; kind: TaskKind }
+  | { type: 'draft.saved'; draftId: string; updatedAt: string }
+  | { type: 'update.status'; status: UpdateStatus }
+  | { type: 'account.needsReauth'; accountId: string }
+  | { type: 'account.added'; accountId: string; login: string }
+  | { type: 'auth.failed'; flowId: string; message: string }
+  | { type: 'toast'; level: 'info' | 'success' | 'warning' | 'error'; message: string }

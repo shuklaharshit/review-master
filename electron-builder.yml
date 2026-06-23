@@ -1,0 +1,26 @@
+appId: co.circleupapp.reviewmaster
+productName: Review Master
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - "**/*.node"
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+  category: Development
+publish:
+  provider: github
+  owner: review-master
+  repo: review-master
