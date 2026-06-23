@@ -8,7 +8,7 @@ import { useAppStore } from '../../stores/appStore'
 import { Button } from '../ui/Button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from '../ui/Dialog'
 import { Card } from '../ui/misc'
-import { CheckIcon, CopyIcon, ExternalLinkIcon, GitHubIcon, SpinnerIcon } from '../ui/icons'
+import { AlertTriangleIcon, CheckIcon, CopyIcon, ExternalLinkIcon, GitHubIcon, SpinnerIcon } from '../ui/icons'
 import { cn } from '../ui/cn'
 
 type Provider = { id: GitProviderId; label: string; available: boolean }
@@ -20,71 +20,105 @@ const PROVIDERS: Provider[] = [
 ]
 
 type Step = 'provider' | 'device'
+type Status = 'waiting' | 'connected' | 'error'
 
-export function AddAccountModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function AddAccountModal({
+  open,
+  onOpenChange,
+  onConnected
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** Called once the account is connected (after the brief success flash). */
+  onConnected?: (accountId: string, login: string) => void
+}): JSX.Element {
   const [step, setStep] = useState<Step>('provider')
   const [provider, setProvider] = useState<GitProviderId>('github')
   const [flow, setFlow] = useState<AuthFlowStartResult | null>(null)
+  const [status, setStatus] = useState<Status>('waiting')
+  const [opened, setOpened] = useState(false)
+  const [connectedLogin, setConnectedLogin] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
   const [copied, setCopied] = useState(false)
+
   const pushToast = useAppStore((s) => s.pushToast)
   const startAdd = useStartAddAccount()
   const qc = useQueryClient()
 
-  // reset on close
+  // Reset all state whenever the modal closes.
   useEffect(() => {
     if (!open) {
       setStep('provider')
       setFlow(null)
+      setStatus('waiting')
+      setOpened(false)
+      setConnectedLogin('')
+      setErrorMessage('')
       setCopied(false)
     }
   }, [open])
 
-  async function startFlow() {
+  // (A) Event-driven completion: react the instant the main process reports
+  // success or failure, instead of polling the account list.
+  useEffect(() => {
+    if (step !== 'device' || !flow) return
+    const unsubscribe = api.events.onAppEvent((event) => {
+      if (event.type === 'account.added') {
+        setStatus('connected')
+        setConnectedLogin(event.login)
+        void qc.invalidateQueries({ queryKey: queryKeys.accounts })
+        void qc.invalidateQueries({ queryKey: queryKeys.bootstrap })
+        // Brief success flash, then close + advance.
+        window.setTimeout(() => {
+          onConnected?.(event.accountId, event.login)
+          onOpenChange(false)
+        }, 900)
+      } else if (event.type === 'auth.failed' && event.flowId === flow.flowId) {
+        setStatus('error')
+        setErrorMessage(event.message)
+      }
+    })
+    return unsubscribe
+  }, [step, flow, qc, onConnected, onOpenChange])
+
+  async function startFlow(): Promise<void> {
     try {
       const result = await startAdd.mutateAsync(provider)
       setFlow(result)
+      setStatus('waiting')
+      setOpened(false)
       setStep('device')
     } catch (err) {
       pushToast('error', err instanceof Error ? err.message : 'Failed to start authorization.')
     }
   }
 
-  // Poll for completion by refreshing accounts; the backend completes the flow.
-  useEffect(() => {
-    if (step !== 'device' || !flow) return
-    const interval = window.setInterval(async () => {
-      const accounts = await api.accounts.list()
-      qc.setQueryData(queryKeys.accounts, accounts)
-      // crude success detection: account count grew while the device modal is open.
-    }, Math.max(2, flow.intervalSeconds) * 1000)
-
-    const checkLoop = window.setInterval(async () => {
-      try {
-        const accounts = await api.accounts.list()
-        qc.setQueryData(queryKeys.accounts, accounts)
-      } catch {
-        /* ignore transient */
-      }
-    }, 2500)
-
-    return () => {
-      window.clearInterval(interval)
-      window.clearInterval(checkLoop)
-    }
-  }, [step, flow, qc])
-
-  function copyCode() {
+  function copyCode(): void {
     if (!flow) return
     void navigator.clipboard.writeText(flow.userCode)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1500)
   }
 
-  function handleClose(next: boolean) {
-    if (!next && step === 'device' && flow) {
+  function openGitHub(): void {
+    if (!flow) return
+    setOpened(true)
+    void api.app.openExternal(flow.verificationUri)
+  }
+
+  function handleClose(next: boolean): void {
+    if (!next && step === 'device' && flow && status !== 'connected') {
       void api.accounts.cancelAddAccount(flow.flowId).catch(() => undefined)
     }
     onOpenChange(next)
+  }
+
+  function retry(): void {
+    setStep('provider')
+    setFlow(null)
+    setStatus('waiting')
+    setOpened(false)
+    setErrorMessage('')
   }
 
   return (
@@ -140,27 +174,48 @@ export function AddAccountModal({ open, onOpenChange }: { open: boolean; onOpenC
                 <span className="mono text-2xl font-semibold tracking-[0.2em] text-text-primary">
                   {flow?.userCode ?? '········'}
                 </span>
-                <Button variant="secondary" size="sm" onClick={copyCode}>
+                <Button variant="secondary" size="sm" onClick={copyCode} disabled={status === 'connected'}>
                   {copied ? <CheckIcon className="h-3.5 w-3.5 text-success" /> : <CopyIcon className="h-3.5 w-3.5" />}
                   {copied ? 'Copied' : 'Copy code'}
                 </Button>
               </Card>
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={() => flow && api.app.openExternal(flow.verificationUri)}
-              >
+              <Button variant="primary" className="w-full" onClick={openGitHub} disabled={status === 'connected'}>
                 <ExternalLinkIcon className="h-4 w-4" /> Open GitHub
               </Button>
-              <div className="flex items-center gap-2 text-[13px] text-text-muted">
-                <SpinnerIcon className="h-3.5 w-3.5" />
-                Waiting for authorization…
-              </div>
+
+              {/* (B) Honest, stateful status line */}
+              {status === 'connected' ? (
+                <div className="flex items-center gap-2 text-[13px] font-medium text-success">
+                  <CheckIcon className="h-4 w-4" />
+                  Connected{connectedLogin ? ` as ${connectedLogin}` : ''}
+                </div>
+              ) : status === 'error' ? (
+                <div className="flex items-start gap-2 text-[13px] text-danger">
+                  <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{errorMessage || 'GitHub authorization failed.'}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-[13px] text-text-muted">
+                  <SpinnerIcon className="h-3.5 w-3.5" />
+                  {opened ? 'Waiting for you to authorize in GitHub…' : 'Waiting for authorization…'}
+                </div>
+              )}
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => handleClose(false)}>
-                Cancel
-              </Button>
+              {status === 'error' ? (
+                <>
+                  <Button variant="ghost" onClick={() => handleClose(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" onClick={retry}>
+                    Try again
+                  </Button>
+                </>
+              ) : (
+                <Button variant="ghost" onClick={() => handleClose(false)} disabled={status === 'connected'}>
+                  Cancel
+                </Button>
+              )}
             </DialogFooter>
           </>
         )}

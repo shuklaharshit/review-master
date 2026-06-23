@@ -6,17 +6,24 @@ import { Tooltip } from '../ui/Tooltip'
 import { GearIcon } from '../ui/icons'
 import { AccountDropdown } from './AccountDropdown'
 
+// On macOS the window uses a hidden-inset title bar, so the traffic-light
+// buttons overlay the top-left of the header. Reserve space for them.
+const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.userAgent)
+
 export function Header({ centerSlot }: { centerSlot?: ReactNode }) {
   const setRoute = useAppStore((s) => s.setRoute)
   const route = useAppStore((s) => s.route)
   const showAccountControls = route !== 'onboarding'
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border-subtle bg-background-elevated px-4">
+    <header
+      className="app-drag flex h-12 shrink-0 items-center gap-4 border-b border-border-subtle bg-background-elevated pr-4"
+      style={{ paddingLeft: isMac ? 84 : 16 }}
+    >
       <button
         type="button"
         onClick={() => showAccountControls && setRoute('accounts')}
-        className="flex items-center gap-2.5 text-left"
+        className="app-no-drag flex items-center gap-2.5 text-left"
       >
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-soft text-accent-hover">
           <span className="text-[13px] font-bold">R</span>
@@ -27,9 +34,9 @@ export function Header({ centerSlot }: { centerSlot?: ReactNode }) {
         </div>
       </button>
 
-      <div className="flex min-w-0 flex-1 items-center justify-center px-4">{centerSlot}</div>
+      <div className="app-no-drag flex min-w-0 flex-1 items-center justify-center px-4">{centerSlot}</div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="app-no-drag flex items-center gap-1.5">
         {showAccountControls && <AccountDropdown />}
         {showAccountControls && (
           <Tooltip content="Settings">
