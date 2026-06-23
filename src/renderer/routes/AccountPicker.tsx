@@ -72,7 +72,11 @@ export function AccountPicker() {
         )}
       </div>
 
-      <AddAccountModal open={addOpen} onOpenChange={setAddOpen} />
+      <AddAccountModal
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onConnected={(accountId) => pick(accountId)}
+      />
     </div>
   )
 }

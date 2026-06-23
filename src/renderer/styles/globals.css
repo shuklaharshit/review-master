@@ -288,3 +288,11 @@ input {
 .rm-pulse {
   animation: rm-pulse 1.6s ease-in-out infinite;
 }
+
+/* Electron window drag regions (macOS hiddenInset title bar). */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}

@@ -40,6 +40,8 @@ export interface AuthFlowState {
   flowId: string
   deviceCode: string
   intervalSeconds: number
+  /** GitHub's originally requested interval; we relax back to this after a transient slow_down. */
+  baseIntervalSeconds: number
   expiresAt: number
   cancelled: boolean
 }

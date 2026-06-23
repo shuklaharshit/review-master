@@ -51,6 +51,7 @@ export class GitHubAuthService {
       flowId,
       deviceCode: data.device_code,
       intervalSeconds,
+      baseIntervalSeconds: intervalSeconds,
       expiresAt: Date.now() + data.expires_in * 1000,
       cancelled: false
     })
@@ -99,7 +100,10 @@ export class GitHubAuthService {
 
         switch (data.error) {
           case 'authorization_pending':
-            // keep polling
+            // Healthy poll: relax back to GitHub's base interval so a single
+            // earlier slow_down doesn't keep us at the inflated cadence (which
+            // was causing the ~10s detection lag).
+            state.intervalSeconds = state.baseIntervalSeconds
             break
           case 'slow_down':
             // GitHub asks us to back off; honour interval if provided, else +5s.
