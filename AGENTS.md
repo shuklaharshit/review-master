@@ -74,10 +74,36 @@ These are the boundaries that keep the app secure and maintainable. Do not cross
 - Renderer: state in `stores/` (zustand), server calls in `queries/` (TanStack Query) via `lib/api.ts`. Components stay presentational.
 - Styling: Tailwind + the "Midnight Graphite" CSS variables in `styles/globals.css`. Borders over shadows; colour for state/severity only.
 
+## Definition of Done (binding — read before finishing any task)
+
+A change in this repo is "done" only when ALL of the following hold. Future agents: treat this as binding, not advisory.
+
+**Code & comments — write for the next agent who has zero context**
+- Match the surrounding style, naming, and comment density. Comment the *why*, not the *what* — explain non-obvious decisions, invariants, and cross-layer wiring so the next reader doesn't have to reverse-engineer intent.
+- Give every new module/service and every non-trivial function a short header or JSDoc stating its purpose and where it sits in the layering (the existing files set the bar).
+- Keep the contract-first discipline: changes usually start in the shared contracts (`shared/types.ts`, `shared/schemas.ts`, `main/contracts.ts`, `db/types.ts`, `providers/GitProvider.ts`); when you touch one, update every implementor.
+- Respect the non-negotiable invariants above. Never cross the renderer/main boundary.
+
+**Docs — the code is truth; keep docs in sync in the SAME change**
+- If you change behavior these docs describe, update them as part of the change: `AGENTS.md`, `ARCHITECTURE.md`, and add (or supersede) an ADR in `docs/adr/` for load-bearing decisions. A stale doc is a bug.
+
+**Tests — required, not optional**
+- After any change, run `yarn typecheck && yarn test` and get them green before considering the task done. If you touched the DB layer (`src/main/db`), also run `yarn test:db` (see Testing expectations for the Node/ABI note).
+- Add or update tests for what you changed: new logic → new tests; changed behavior → updated tests; bug fix → a regression test that fails before the fix and passes after. Follow the established patterns (pure unit; mocked-deps services per `ReviewSubmissionService.test.ts`; jsdom components).
+- Never delete or weaken a test just to make it pass — fix the code, or change the expectation deliberately and explain why.
+
+**Commits — only when asked, with real context**
+- Commit ONLY when the user explicitly asks.
+- Write a message a future human or agent can learn from: a concise imperative subject line, then a body covering the problem/why, the approach, the per-area changes, and how it was verified (typecheck/tests). Reference the relevant ADR or finding. One logical change per commit.
+- Do NOT add `Co-Authored-By` or any extra co-author trailers to commits.
+
 ## Common recipes
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for step-by-step recipes: adding an IPC channel end-to-end, adding a git provider, and debugging a Codex turn.
 
 ## Testing expectations
 
-Tests are Vitest, colocated in `__tests__/`, node environment. Pure logic (diff parsing, hashing, mappers, the activity translator, Zod schemas) is unit-tested directly. Services are tested with small `vi.fn()` fakes for `Database`/`GitProvider`/`CodexRuntime` — see `src/main/pr/__tests__/ReviewSubmissionService.test.ts` for the reference pattern. Do not write tests that touch the network, the real Codex process, or real git.
+Tests are Vitest, colocated in `__tests__/`. Pure logic (diff parsing, hashing, mappers, the activity translator, Zod schemas) is unit-tested directly. Services are tested with small `vi.fn()` fakes for `Database`/`GitProvider`/`CodexRuntime` — see `src/main/pr/__tests__/ReviewSubmissionService.test.ts` for the reference pattern. Renderer component tests opt into jsdom with a `// @vitest-environment jsdom` docblock as the file's first line (see `src/renderer/components/review/__tests__/`). Do not write tests that touch the network, the real Codex process, or real git.
+
+- `yarn test` runs the default suite (services with fakes, pure logic, renderer). It **excludes** the DB tests.
+- `yarn test:db` runs the `src/main/db/__tests__` repository tests against real in-memory SQLite — these load native `better-sqlite3`, which `yarn install` builds for **Electron's** ABI, so running them under plain-Node Vitest needs a Node-ABI rebuild first: `npm rebuild better-sqlite3 --update-binary && yarn test:db`, then `yarn rebuild:electron` to restore the app's build. CI runs them in a dedicated `test-db` job. **Don't add native-module-loading tests to the default suite** — it would break `yarn test`/CI and the Electron app's build.

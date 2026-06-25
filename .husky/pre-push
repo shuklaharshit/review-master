@@ -1,0 +1,6 @@
+#!/bin/sh
+# Gate pushes on the Definition of Done (AGENTS.md): typecheck + default test
+# suite must pass. (DB tests run in CI's dedicated test-db job — they need a
+# Node-ABI rebuild, so they're intentionally not run here.)
+echo "▶ pre-push: yarn typecheck && yarn test"
+yarn typecheck && yarn test

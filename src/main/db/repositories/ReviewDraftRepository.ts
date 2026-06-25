@@ -81,7 +81,7 @@ export class ReviewDraftRepository implements IReviewDraftRepository {
       .prepare(
         `SELECT * FROM review_drafts
           WHERE pull_request_id = ? AND snapshot_id = ?
-          ORDER BY updated_at DESC LIMIT 1`
+          ORDER BY updated_at DESC, rowid DESC LIMIT 1`
       )
       .get(pullRequestId, snapshotId) as ReviewDraftRow | undefined
     return row ? rowToDraft(row) : null
@@ -90,7 +90,7 @@ export class ReviewDraftRepository implements IReviewDraftRepository {
   latestForPr(pullRequestId: string): ReviewDraft | null {
     const row = this.db
       .prepare(
-        'SELECT * FROM review_drafts WHERE pull_request_id = ? ORDER BY updated_at DESC LIMIT 1'
+        'SELECT * FROM review_drafts WHERE pull_request_id = ? ORDER BY updated_at DESC, rowid DESC LIMIT 1'
       )
       .get(pullRequestId) as ReviewDraftRow | undefined
     return row ? rowToDraft(row) : null

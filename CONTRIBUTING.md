@@ -5,6 +5,7 @@ Workflows for working in Review Master. Read [`AGENTS.md`](./AGENTS.md) and [`AR
 ## Setup
 
 ```bash
+nvm use                  # uses the Node version pinned in .nvmrc (Node 22)
 yarn install            # builds native modules (better-sqlite3, keytar) for Electron
 cp .env.example .env     # set REVIEW_MASTER_GITHUB_CLIENT_ID (public OAuth Client ID)
 # Install + log in to Codex once, in a terminal:
@@ -21,6 +22,14 @@ yarn typecheck && yarn test
 ```
 
 Both must pass. `typecheck` covers main (node) and renderer (web) projects.
+
+## Git hooks (husky)
+
+`yarn install` sets up local hooks (via the `prepare` script) that enforce the policy in `AGENTS.md`:
+- **`pre-push`** runs `yarn typecheck && yarn test` — a push with failing typecheck/tests is blocked.
+- **`commit-msg`** rejects any commit message containing a `Co-Authored-By:` trailer (and empty messages).
+
+These are a local backstop; CI is the authoritative gate. In a genuine emergency you can bypass with `git commit --no-verify` / `git push --no-verify`, but don't make a habit of it.
 
 ## Spec vs. code
 
@@ -60,9 +69,18 @@ Never call a service or external API from the renderer directly.
 
 ## Testing
 
-- Vitest, colocated under `__tests__/`, node environment. Run `yarn test` / `yarn test:watch`.
+- Vitest, colocated under `__tests__/`. Run `yarn test` / `yarn test:watch` (default suite; DB tests excluded).
 - Unit-test pure logic directly (diff parsing, hashing, mappers, the activity translator, Zod schemas).
 - Test services with small `vi.fn()` fakes for `Database` / `GitProvider` / `CodexRuntime`. The reference example is `src/main/pr/__tests__/ReviewSubmissionService.test.ts`.
+- Renderer component tests use jsdom via a `// @vitest-environment jsdom` first-line docblock.
+- **DB repository tests** run against real in-memory SQLite and load native `better-sqlite3`. Because `yarn install` builds it for Electron's ABI, run them under Node like this:
+  ```bash
+  npm rebuild better-sqlite3 --update-binary   # fetch the Node-ABI prebuilt
+  yarn test:db
+  yarn rebuild:electron                          # restore the Electron build so `yarn dev` works
+  ```
+  CI runs them in a separate `test-db` job. Never add native-module-loading tests to the default suite.
+  - **Node version matters for this step.** `--update-binary` fetches a prebuilt `better-sqlite3` for your Node ABI. **Node 20 and 22 have prebuilts and work out of the box** (use the pinned Node 22 via `nvm use`). **Node 24 has no prebuilt yet** for our `better-sqlite3` version, so it falls back to a source compile that fails on Python 3.12 unless you `pip install setuptools` first — easiest is to just run the DB tests on Node 22.
 - Do not write tests that hit the network, the real `codex` process, or real git.
 
 ## Commit messages

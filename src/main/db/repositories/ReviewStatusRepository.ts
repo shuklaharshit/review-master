@@ -94,7 +94,7 @@ export class ReviewStatusRepository implements IReviewStatusRepository {
   latestForPr(pullRequestId: string): ReviewStatus | null {
     const row = this.db
       .prepare(
-        'SELECT * FROM review_statuses WHERE pull_request_id = ? ORDER BY updated_at DESC LIMIT 1'
+        'SELECT * FROM review_statuses WHERE pull_request_id = ? ORDER BY updated_at DESC, rowid DESC LIMIT 1'
       )
       .get(pullRequestId) as ReviewStatusRow | undefined
     return row ? rowToStatus(row) : null

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Enforce the commit policy in AGENTS.md.
+msg_file="$1"
+
+# 1) No co-author trailers (project policy).
+if grep -qiE '^[[:space:]]*Co-Authored-By:' "$msg_file"; then
+  echo "✖ commit rejected: remove 'Co-Authored-By:' trailers (project policy — see AGENTS.md)." >&2
+  exit 1
+fi
+
+# 2) Require a non-empty subject line (ignoring comment lines).
+subject=$(grep -vE '^[[:space:]]*#' "$msg_file" | grep -vE '^[[:space:]]*$' | head -n 1)
+if [ -z "$subject" ]; then
+  echo "✖ commit rejected: empty commit message." >&2
+  exit 1
+fi

@@ -80,7 +80,7 @@ export class PreflightRepository implements IPreflightRepository {
       .prepare(
         `SELECT * FROM preflight_analyses
           WHERE snapshot_id = ? AND status = 'completed'
-          ORDER BY completed_at DESC LIMIT 1`
+          ORDER BY completed_at DESC, rowid DESC LIMIT 1`
       )
       .get(snapshotId) as PreflightRow | undefined
     return row ? rowToRecord(row) : null
@@ -89,7 +89,7 @@ export class PreflightRepository implements IPreflightRepository {
   latestForPr(pullRequestId: string): PreflightRecord | null {
     const row = this.db
       .prepare(
-        'SELECT * FROM preflight_analyses WHERE pull_request_id = ? ORDER BY created_at DESC LIMIT 1'
+        'SELECT * FROM preflight_analyses WHERE pull_request_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1'
       )
       .get(pullRequestId) as PreflightRow | undefined
     return row ? rowToRecord(row) : null

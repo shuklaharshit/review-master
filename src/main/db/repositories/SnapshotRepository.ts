@@ -78,7 +78,8 @@ export class SnapshotRepository implements ISnapshotRepository {
   latestForPr(pullRequestId: string): PrCommitSnapshot | null {
     const row = this.db
       .prepare(
-        'SELECT * FROM pr_commit_snapshots WHERE pull_request_id = ? ORDER BY created_at DESC LIMIT 1'
+        // rowid DESC is a deterministic tiebreaker when two rows share created_at.
+        'SELECT * FROM pr_commit_snapshots WHERE pull_request_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1'
       )
       .get(pullRequestId) as SnapshotRow | undefined
     return row ? rowToSnapshot(row) : null
