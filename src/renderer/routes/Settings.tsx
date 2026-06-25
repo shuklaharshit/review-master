@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ReasoningEffort } from '@shared/types'
-import { REASONING_EFFORTS } from '@shared/constants'
+import { REASONING_EFFORTS, githubAppInstallUrl } from '@shared/constants'
 import { useSettings, useUpdateSettings, useModels } from '../queries/useSettings'
 import { useAccounts, useRemoveAccount } from '../queries/useAccounts'
 import { useAppStore } from '../stores/appStore'
@@ -12,7 +12,7 @@ import { Select } from '../components/ui/Select'
 import { Switch } from '../components/ui/Switch'
 import { Avatar, Badge } from '../components/ui/misc'
 import { AddAccountModal } from '../components/account/AddAccountModal'
-import { GitHubIcon, RefreshIcon } from '../components/ui/icons'
+import { ExternalLinkIcon, GitHubIcon, RefreshIcon } from '../components/ui/icons'
 
 function Section({ title, children }: { title: string; children: ReactNode }): JSX.Element {
   return (
@@ -133,6 +133,14 @@ export function Settings(): JSX.Element {
               <GitHubIcon className="h-3.5 w-3.5 text-text-muted" />
               <span className="flex-1 text-[13px] text-text-primary">{acc.login}</span>
               {acc.needsReauth && <Badge tone="warning">Needs re-auth</Badge>}
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Choose which repositories this app can access on GitHub"
+                onClick={() => void api.app.openExternal(githubAppInstallUrl())}
+              >
+                <ExternalLinkIcon className="h-3.5 w-3.5" /> Manage repositories
+              </Button>
               <Button
                 variant="danger"
                 size="sm"

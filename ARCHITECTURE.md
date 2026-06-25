@@ -49,8 +49,12 @@ This contract-first layout is deliberate: an agent can understand the whole syst
 
 ## Key data flows
 
-### Connect GitHub (device flow)
-`handlers.startAddAccount` → `GitHubProvider.startAuthFlow` returns a user code immediately, then `awaitAuthFlow` polls GitHub's token endpoint in the background. On success it fetches the user, `AccountService.saveAuthenticatedAccount` stores the token in the keychain + metadata in SQLite, and emits an `account.added` AppEvent. The modal is event-driven (closes on that event). The Client ID is public; there is **no client secret** (ADR-0002).
+### Connect GitHub (GitHub App device flow)
+`handlers.startAddAccount` → `GitHubProvider.startAuthFlow` returns a user code immediately, then `awaitAuthFlow` polls GitHub's token endpoint in the background. We authenticate with a **GitHub App** user-to-server token via device flow — public Client ID, **no client secret and no private key** (ADR-0007, supersedes ADR-0002). The device-code request sends **no `scope`** (Apps use fine-grained permissions). On success it fetches the user and `AccountService.saveAuthenticatedAccount` stores the full credential — access token, **refresh token**, and expiry timestamps — as a JSON blob in the keychain, with metadata in SQLite, then emits an `account.added` AppEvent. The modal is event-driven; if the App isn't installed on any repos yet (`hasInstallations` is false) it shows a "Choose repositories" step linking to `github.com/apps/<slug>/installations/new`.
+
+**Token refresh (F-1=ON):** access tokens are short-lived. `AccountService.getToken` transparently refreshes within 60s of expiry via `GitHubAuthService.refresh` (a `TokenRefresher` injected at construction); `GitHubApiClient.call` also force-refreshes and retries once on a 401. If the refresh token itself is dead, the account is flagged `needsReauth`.
+
+**Repo access is installation-scoped:** `GitHubApiClient.listAllRepos` aggregates repos across the user's App installations (`apps.listInstallations*`), and `GitHubProvider` sorts/paginates/filters them client-side (we don't use `search.repos`, which is unreliable under an App token). Legacy classic-OAuth accounts (detectable by their stored `scopes`) are flagged `needsReauth` on launch (ADR-0007 Part C).
 
 ### Open a PR workspace
 `PullRequestContextService.openWorkspace` fetches the PR context via the provider, builds a **normalized diff** (local git cache preferred via `RepoCacheService`, GitHub API patch fallback — ADR-0003), computes a deterministic `filesHash`, then `findOrCreate`s a **snapshot** (baseSha + headSha + filesHash). Preflight/draft/review-status rows are looked up against that snapshot to derive the `LocalPrReviewState` and staleness flags. The snapshot is how we detect "the PR changed since you reviewed it".

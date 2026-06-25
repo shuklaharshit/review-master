@@ -31,16 +31,31 @@ export const GENERATED_FILE_PATTERNS: RegExp[] = [
   /\.snap$/
 ]
 
-// GitHub OAuth — PUBLIC client id for device flow (no client secret embedded).
-// A Client ID is not a secret, so you may also paste yours directly as the
-// fallback below. In the main process it is read from the environment
-// (REVIEW_MASTER_GITHUB_CLIENT_ID), populated from .env in dev (see loadEnv.ts).
-// The `typeof process` guard keeps this module safe to import in the renderer,
-// which has no `process` global.
-const envClientId =
-  typeof process !== 'undefined' && process.env ? process.env.REVIEW_MASTER_GITHUB_CLIENT_ID : undefined
-export const GITHUB_CLIENT_ID = envClientId || 'PASTE_YOUR_GITHUB_OAUTH_CLIENT_ID'
-export const GITHUB_OAUTH_SCOPES = ['repo', 'read:org', 'read:user']
+// GitHub App — PUBLIC client id for the device flow (no client secret, no
+// private key on the client; see ADR-0007). The values are supplied via the
+// environment (REVIEW_MASTER_GITHUB_CLIENT_ID / _APP_SLUG), populated from .env
+// in dev (see loadEnv.ts) and injected for packaged builds — no real value is
+// committed to source. The `typeof process` guard keeps this module safe to
+// import in the renderer, which has no `process` global.
+// NOTE: GitHub Apps use fine-grained *permissions*, not OAuth *scopes* — the
+// device-code request intentionally sends no `scope` (GITHUB_OAUTH_SCOPES is
+// gone). Repo access is governed by where the App is installed + repo selection.
+const env = typeof process !== 'undefined' && process.env ? process.env : undefined
+export const GITHUB_CLIENT_ID = env?.REVIEW_MASTER_GITHUB_CLIENT_ID || ''
+
+// GitHub App slug — the `<slug>` in https://github.com/apps/<slug>. Used to send
+// the user to GitHub to install the App / choose which repositories it can see.
+export const GITHUB_APP_SLUG = env?.REVIEW_MASTER_GITHUB_APP_SLUG || ''
+
+/** True when the GitHub App identity is configured (set via env). */
+export function isGitHubAppConfigured(): boolean {
+  return GITHUB_CLIENT_ID.length > 0 && GITHUB_APP_SLUG.length > 0
+}
+
+/** URL to install the App / add repositories to an existing installation. */
+export function githubAppInstallUrl(): string {
+  return `https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`
+}
 
 // Codex binary fallback search paths (macOS Finder PATH differs from Terminal)
 export const CODEX_FALLBACK_PATHS = [

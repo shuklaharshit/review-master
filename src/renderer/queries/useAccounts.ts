@@ -17,6 +17,20 @@ export function useStartAddAccount() {
   })
 }
 
+/**
+ * Whether the GitHub App can see any installation for this account. Drives the
+ * "Choose repositories" onboarding step (ADR-0007). `enabled` lets callers defer
+ * the check until an account id is available.
+ */
+export function useHasInstallations(accountId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.installations(accountId ?? ''),
+    queryFn: () => api.accounts.hasInstallations(accountId as string),
+    enabled: enabled && !!accountId,
+    staleTime: 10_000
+  })
+}
+
 export function useSetActiveAccount() {
   const qc = useQueryClient()
   return useMutation({

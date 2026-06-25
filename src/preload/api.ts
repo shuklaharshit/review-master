@@ -62,7 +62,9 @@ export const reviewMasterApi = {
     cancelAddAccount: (flowId: string) => invoke<void>(IPC.accounts.cancelAddAccount, { flowId }),
     remove: (accountId: string, options?: RemoveAccountOptions) =>
       invoke<void>(IPC.accounts.remove, { accountId, options }),
-    setActive: (accountId: string) => invoke<void>(IPC.accounts.setActive, { accountId })
+    setActive: (accountId: string) => invoke<void>(IPC.accounts.setActive, { accountId }),
+    hasInstallations: (accountId: string) =>
+      invoke<boolean>(IPC.accounts.hasInstallations, { accountId })
   },
   repos: {
     list: (params: ListRepositoriesParams) => invoke<PaginatedResult<Repository>>(IPC.repos.list, params),

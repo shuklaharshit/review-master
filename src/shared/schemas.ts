@@ -195,6 +195,7 @@ export const RemoveAccountSchema = z.object({
   options: z.object({ removeCachedData: z.boolean().optional() }).optional()
 })
 export const SetActiveAccountSchema = z.object({ accountId: z.string().min(1) })
+export const HasInstallationsSchema = z.object({ accountId: z.string().min(1) })
 export const CancelFlowSchema = z.object({ flowId: z.string().min(1) })
 export const OpenExternalSchema = z.object({ url: z.string().url() })
 export const CancelTaskSchema = z.object({ taskId: z.string().min(1) })

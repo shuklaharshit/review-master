@@ -26,6 +26,7 @@ import type { AccountService } from '../../auth/AccountService'
 import type { GitProvider, SubmitReviewParams } from '../GitProvider'
 import { GitHubApiClient, type ListPullsOptions } from './GitHubApiClient'
 import { GitHubAuthService } from './GitHubAuthService'
+import type { GhRepo } from './GitHubTypes'
 import {
   mapCheckRun,
   mapCommit,
@@ -80,59 +81,83 @@ export class GitHubProvider implements GitProvider {
   }
 
   async awaitAuthFlow(flowId: string): Promise<string> {
-    const { token, scopes } = await this.auth.awaitAuthFlow(flowId)
-    const user = await this.auth.getAuthenticatedUser(token)
+    const credential = await this.auth.awaitAuthFlow(flowId)
+    const user = await this.auth.getAuthenticatedUser(credential.accessToken)
     const account = await this.accounts.saveAuthenticatedAccount({
       providerId: 'github',
       providerAccountId: String(user.id),
       login: user.login,
       displayName: user.name ?? undefined,
       avatarUrl: user.avatar_url,
-      scopes,
-      token
+      // GitHub Apps issue no scopes; access is governed by installation.
+      credential
     })
     this.log.info('account authenticated', { accountId: account.id, login: account.login })
     return account.id
+  }
+
+  /** Whether the account's token can see any App installation (drives onboarding UI). */
+  async hasInstallations(accountId: string): Promise<boolean> {
+    return this.api.hasInstallations(accountId)
   }
 
   // -------------------------------------------------------------------------
   // Repositories
   // -------------------------------------------------------------------------
 
+  // Under a GitHub App, repos come from installations (ADR-0007): we fetch the
+  // full installation-scoped set once, then sort / paginate / filter in-process.
   async listRepositories(params: ListRepositoriesParams): Promise<PaginatedResult<Repository>> {
-    const page = params.page ?? 1
-    const perPage = params.perPage ?? DEFAULT_REPO_PER_PAGE
-    const sort = params.sort ?? 'updated'
-
-    const raw = await this.api.listRepos(params.accountId, page, perPage, sort)
-    const items = raw.map((r) => mapRepository(params.accountId, r))
-    this.db.repos.upsertMany(items)
-
-    return { items, page, perPage, hasMore: raw.length === perPage }
+    const sorted = this.sortRepos(await this.api.listAllRepos(params.accountId), params.sort ?? 'updated')
+    return this.paginateRepos(params.accountId, sorted, params.page, params.perPage)
   }
 
   async searchRepositories(params: SearchRepositoriesParams): Promise<PaginatedResult<Repository>> {
-    const page = params.page ?? 1
-    const perPage = params.perPage ?? DEFAULT_REPO_PER_PAGE
-
-    const account = this.accounts.get(params.accountId)
-    if (!account) {
+    if (!this.accounts.get(params.accountId)) {
       throw appError('account_unauthenticated', 'Unknown GitHub account.', true, {
         accountId: params.accountId
       })
     }
 
-    const { items: raw, total } = await this.api.searchRepos(
-      params.accountId,
-      account.login,
-      params.query,
-      page,
-      perPage
-    )
-    const items = raw.map((r) => mapRepository(params.accountId, r))
-    this.db.repos.upsertMany(items)
+    const q = params.query.trim().toLowerCase()
+    const sorted = this.sortRepos(await this.api.listAllRepos(params.accountId), 'updated')
+    const filtered = q
+      ? sorted.filter(
+          (r) =>
+            r.full_name.toLowerCase().includes(q) ||
+            r.name.toLowerCase().includes(q) ||
+            (r.description ?? '').toLowerCase().includes(q)
+        )
+      : sorted
+    return this.paginateRepos(params.accountId, filtered, params.page, params.perPage)
+  }
 
-    return { items, page, perPage, hasMore: page * perPage < total, total }
+  /** Maps + caches the full set, returns one client-side page with totals. */
+  private paginateRepos(
+    accountId: string,
+    raw: GhRepo[],
+    page = 1,
+    perPage = DEFAULT_REPO_PER_PAGE
+  ): PaginatedResult<Repository> {
+    const items = raw.map((r) => mapRepository(accountId, r))
+    this.db.repos.upsertMany(items)
+    const start = (page - 1) * perPage
+    return {
+      items: items.slice(start, start + perPage),
+      page,
+      perPage,
+      hasMore: start + perPage < items.length,
+      total: items.length
+    }
+  }
+
+  private sortRepos(repos: GhRepo[], sort: 'updated' | 'pushed' | 'full_name'): GhRepo[] {
+    const copy = [...repos]
+    if (sort === 'full_name') {
+      return copy.sort((a, b) => a.full_name.localeCompare(b.full_name))
+    }
+    // 'updated'/'pushed' → most-recently-updated first (we only carry updated_at).
+    return copy.sort((a, b) => (Date.parse(b.updated_at ?? '') || 0) - (Date.parse(a.updated_at ?? '') || 0))
   }
 
   // -------------------------------------------------------------------------

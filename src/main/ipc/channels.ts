@@ -16,7 +16,8 @@ export const IPC = {
     startAddAccount: 'accounts:startAddAccount',
     cancelAddAccount: 'accounts:cancelAddAccount',
     remove: 'accounts:remove',
-    setActive: 'accounts:setActive'
+    setActive: 'accounts:setActive',
+    hasInstallations: 'accounts:hasInstallations'
   },
   repos: {
     list: 'repos:list',

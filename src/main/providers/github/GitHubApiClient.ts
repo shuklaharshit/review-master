@@ -35,6 +35,12 @@ export interface ListPullsOptions {
 const MAX_FILE_PAGES = 3
 const FILE_PER_PAGE = 100
 
+// Caps for installation-scoped repo enumeration (ADR-0007).
+const MAX_INSTALLATION_PAGES = 5
+const INSTALLATIONS_PER_PAGE = 100
+const MAX_INSTALL_REPO_PAGES = 10
+const REPO_PER_PAGE = 100
+
 /**
  * Per-account Octokit wrapper. Resolves the token from AccountService on each
  * call, normalises 401 (token revoked) and rate-limit errors into AppErrors,
@@ -58,12 +64,27 @@ export class GitHubApiClient {
     return new Octokit({ auth: token })
   }
 
-  /** Wraps a call so HTTP errors become typed AppErrors. */
+  /**
+   * Wraps a call so HTTP errors become typed AppErrors. On a 401 (expired or
+   * revoked token) it attempts a single transparent token refresh and retries
+   * once before giving up; if the refresh fails, normalizeError flags the
+   * account for re-auth (ADR-0007).
+   */
   private async call<T>(accountId: string, fn: (octokit: Octokit) => Promise<T>): Promise<T> {
     const octokit = await this.octokit(accountId)
     try {
       return await fn(octokit)
     } catch (error) {
+      if ((error as OctokitError)?.status === 401) {
+        const refreshed = await this.accounts.forceRefresh(accountId)
+        if (refreshed) {
+          try {
+            return await fn(new Octokit({ auth: refreshed }))
+          } catch (retryError) {
+            throw this.normalizeError(accountId, retryError)
+          }
+        }
+      }
       throw this.normalizeError(accountId, error)
     }
   }
@@ -108,45 +129,72 @@ export class GitHubApiClient {
   // Repositories
   // -------------------------------------------------------------------------
 
-  async listRepos(
-    accountId: string,
-    page: number,
-    perPage: number,
-    sort: 'updated' | 'pushed' | 'full_name'
-  ): Promise<GhRepo[]> {
+  /**
+   * Repo access under a GitHub App is installation-scoped (ADR-0007): the user
+   * token can only see repos in installations it can access. We aggregate the
+   * full set across installations and let the provider sort / paginate / filter
+   * client-side — `search.repos` is unreliable under an App token (it only
+   * matches installed repos and silently omits others), so we don't use it.
+   */
+  async listAllRepos(accountId: string): Promise<GhRepo[]> {
+    const installationIds = await this.listInstallationIds(accountId)
+    const byId = new Map<number, GhRepo>()
+    for (const installationId of installationIds) {
+      for (const repo of await this.listReposForInstallation(accountId, installationId)) {
+        byId.set(repo.id, repo)
+      }
+    }
+    return [...byId.values()]
+  }
+
+  /** True if the user token can access at least one App installation. */
+  async hasInstallations(accountId: string): Promise<boolean> {
     return this.call(accountId, async (octokit) => {
-      const res = await octokit.rest.repos.listForAuthenticatedUser({
-        per_page: perPage,
-        page,
-        sort,
-        affiliation: 'owner,collaborator,organization_member'
-      })
-      return res.data as unknown as GhRepo[]
+      const res = await octokit.rest.apps.listInstallationsForAuthenticatedUser({ per_page: 1 })
+      const count = res.data.total_count ?? res.data.installations.length
+      return count > 0
     })
   }
 
-  async searchRepos(
-    accountId: string,
-    login: string,
-    query: string,
-    page: number,
-    perPage: number
-  ): Promise<{ items: GhRepo[]; total: number }> {
+  private async listInstallationIds(accountId: string): Promise<number[]> {
     return this.call(accountId, async (octokit) => {
-      // Scope the query to the authenticated user so results are relevant.
-      const scoped = query.includes('user:') || query.includes('org:')
-        ? query
-        : `${query} user:${login}`
-      const res = await octokit.rest.search.repos({
-        q: scoped,
-        per_page: perPage,
-        page,
-        sort: 'updated'
-      })
-      return {
-        items: res.data.items as unknown as GhRepo[],
-        total: res.data.total_count
+      const ids: number[] = []
+      for (let page = 1; page <= MAX_INSTALLATION_PAGES; page++) {
+        const res = await octokit.rest.apps.listInstallationsForAuthenticatedUser({
+          per_page: INSTALLATIONS_PER_PAGE,
+          page
+        })
+        const batch = res.data.installations
+        ids.push(...batch.map((i) => i.id))
+        if (batch.length < INSTALLATIONS_PER_PAGE) break
+        if (page === MAX_INSTALLATION_PAGES) {
+          this.log.warn('installation list truncated at cap', { accountId })
+        }
       }
+      return ids
+    })
+  }
+
+  private async listReposForInstallation(
+    accountId: string,
+    installationId: number
+  ): Promise<GhRepo[]> {
+    return this.call(accountId, async (octokit) => {
+      const repos: GhRepo[] = []
+      for (let page = 1; page <= MAX_INSTALL_REPO_PAGES; page++) {
+        const res = await octokit.rest.apps.listInstallationReposForAuthenticatedUser({
+          installation_id: installationId,
+          per_page: REPO_PER_PAGE,
+          page
+        })
+        const batch = res.data.repositories as unknown as GhRepo[]
+        repos.push(...batch)
+        if (batch.length < REPO_PER_PAGE) break
+        if (page === MAX_INSTALL_REPO_PAGES) {
+          this.log.warn('installation repos truncated at cap', { accountId, installationId })
+        }
+      }
+      return repos
     })
   }
 

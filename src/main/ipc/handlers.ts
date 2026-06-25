@@ -8,6 +8,7 @@ import {
   CancelFlowSchema,
   CancelTaskSchema,
   GenerateReviewParamsSchema,
+  HasInstallationsSchema,
   ListPullRequestsParamsSchema,
   ListRepositoriesParamsSchema,
   OpenExternalSchema,
@@ -133,6 +134,9 @@ export function registerIpcHandlers(services: Services): void {
   on(IPC.accounts.setActive, SetActiveAccountSchema, ({ accountId }) => {
     settings.update({ activeAccountId: accountId })
   })
+  on(IPC.accounts.hasInstallations, HasInstallationsSchema, ({ accountId }) =>
+    github.hasInstallations(accountId)
+  )
 
   // ---- repos ----
   on(IPC.repos.list, ListRepositoriesParamsSchema, (params) => github.listRepositories(params))

@@ -13,6 +13,28 @@ export interface SecureTokenStore {
   delete(tokenKey: string): Promise<void>
 }
 
+/**
+ * The full credential we persist per account (ADR-0007, F-1=ON). Serialized as
+ * JSON into the single keychain entry for the account. Legacy OAuth-App accounts
+ * stored a bare access-token string instead; readers tolerate both shapes.
+ * Expiry fields are absolute ISO timestamps.
+ */
+export interface StoredCredential {
+  accessToken: string
+  refreshToken?: string
+  accessTokenExpiresAt?: string
+  refreshTokenExpiresAt?: string
+}
+
+/**
+ * Exchanges a refresh token for a fresh credential. Implemented by the GitHub
+ * provider's auth service; injected into AccountService so token renewal stays
+ * provider-agnostic at the account layer.
+ */
+export interface TokenRefresher {
+  refresh(refreshToken: string): Promise<StoredCredential>
+}
+
 export interface CodexRunOptions {
   taskId: string
   model: string

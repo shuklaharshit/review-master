@@ -1,6 +1,6 @@
 # 0002 — GitHub auth via OAuth device flow, no client secret
 
-**Status:** Accepted
+**Status:** Superseded by [0007](./0007-github-app-over-oauth-app.md) — we keep device flow but move from a classic OAuth App to a GitHub App. The "no client secret / device flow / token in keychain" decisions below still hold.
 
 ## Context
 A desktop app can't safely embed a client secret, and we don't want to depend on the `gh` CLI or the user's system-wide GitHub auth. Auth must be self-contained in the app.

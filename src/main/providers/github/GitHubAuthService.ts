@@ -1,8 +1,9 @@
 import { Octokit } from '@octokit/rest'
 import type { AuthFlowStartResult } from '../../../shared/types'
+import type { StoredCredential, TokenRefresher } from '../../contracts'
 import { appError } from '../../../shared/result'
 import { newId } from '../../../shared/ids'
-import { GITHUB_CLIENT_ID, GITHUB_OAUTH_SCOPES } from '../../../shared/constants'
+import { GITHUB_CLIENT_ID } from '../../../shared/constants'
 import { logger } from '../../app/Logger'
 import type {
   AuthenticatedUser,
@@ -17,11 +18,13 @@ const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token'
 const DEVICE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
 /**
- * GitHub OAuth Device Flow (spec §11.2). No client secret is embedded. Uses
- * the public client id and the global fetch for the (un-Octokit'd) device
- * endpoints, then Octokit for the authenticated-user lookup.
+ * GitHub App Device Flow (ADR-0007). No client secret and no private key are
+ * embedded — only the public client id. GitHub Apps use fine-grained
+ * permissions, so the device-code request sends NO `scope`. With token
+ * expiration enabled the flow yields a short-lived access token + a refresh
+ * token; `refresh()` exchanges the latter for a fresh credential.
  */
-export class GitHubAuthService {
+export class GitHubAuthService implements TokenRefresher {
   private readonly log = logger.scope('github-auth')
   private readonly flows = new Map<string, AuthFlowState>()
 
@@ -30,10 +33,8 @@ export class GitHubAuthService {
     const res = await fetch(DEVICE_CODE_URL, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        scope: GITHUB_OAUTH_SCOPES.join(' ')
-      })
+      // GitHub Apps use permissions, not scopes — send no `scope`.
+      body: JSON.stringify({ client_id: GITHUB_CLIENT_ID })
     })
 
     if (!res.ok) {
@@ -93,9 +94,13 @@ export class GitHubAuthService {
         const data = await this.pollToken(state.deviceCode)
 
         if (data.access_token) {
-          const scopes = (data.scope ?? '').split(/[, ]+/).filter(Boolean)
-          this.log.info('device flow authorised', { flowId, scopeCount: scopes.length })
-          return { token: data.access_token, scopes }
+          const credential = this.toCredential(data)
+          this.log.info('device flow authorised', {
+            flowId,
+            expiresAt: credential.accessTokenExpiresAt,
+            hasRefresh: !!credential.refreshToken
+          })
+          return credential
         }
 
         switch (data.error) {
@@ -150,6 +155,50 @@ export class GitHubAuthService {
       }
     } catch {
       throw appError('auth_user_failed', 'Could not load your GitHub profile.')
+    }
+  }
+
+  /**
+   * Exchanges a refresh token for a fresh credential (TokenRefresher). Called by
+   * AccountService when the access token is expired/expiring. A failure here
+   * usually means the refresh token itself expired/was revoked → the caller
+   * should fall back to re-auth.
+   */
+  async refresh(refreshToken: string): Promise<StoredCredential> {
+    const res = await fetch(ACCESS_TOKEN_URL, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken
+      })
+    })
+
+    if (!res.ok) {
+      throw appError('auth_refresh_failed', `Failed to refresh GitHub token (${res.status}).`, true)
+    }
+    const data = (await res.json()) as DeviceTokenResponse
+    if (!data.access_token) {
+      throw appError(
+        'auth_refresh_failed',
+        data.error_description || 'GitHub refused the token refresh; please reconnect.',
+        true
+      )
+    }
+    return this.toCredential(data)
+  }
+
+  /** Maps a token-endpoint response into a StoredCredential with absolute ISO expiries. */
+  private toCredential(data: DeviceTokenResponse): StoredCredential {
+    const now = Date.now()
+    const at = (seconds?: number): string | undefined =>
+      seconds && seconds > 0 ? new Date(now + seconds * 1000).toISOString() : undefined
+    return {
+      accessToken: data.access_token as string,
+      refreshToken: data.refresh_token,
+      accessTokenExpiresAt: at(data.expires_in),
+      refreshTokenExpiresAt: at(data.refresh_token_expires_in)
     }
   }
 

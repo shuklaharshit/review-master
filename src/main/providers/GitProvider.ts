@@ -36,6 +36,9 @@ export interface GitProvider {
   /** Completes once the user authorises (polls token endpoint). Resolves with the persisted account id. */
   awaitAuthFlow(flowId: string): Promise<string>
 
+  /** Whether the account can see any App installation (GitHub App onboarding, ADR-0007). */
+  hasInstallations(accountId: string): Promise<boolean>
+
   listRepositories(params: ListRepositoriesParams): Promise<PaginatedResult<Repository>>
   searchRepositories(params: SearchRepositoriesParams): Promise<PaginatedResult<Repository>>
 

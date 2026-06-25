@@ -11,21 +11,36 @@ export interface DeviceCodeResponse {
   interval: number
 }
 
-/** GitHub device-flow: response of POST /login/oauth/access_token (JSON). */
+/**
+ * GitHub device-flow / refresh: response of POST /login/oauth/access_token.
+ * With "Expire user authorization tokens" enabled (ADR-0007, F-1=ON) the App
+ * returns a short-lived `access_token` plus a `refresh_token`, with lifetimes in
+ * `expires_in` / `refresh_token_expires_in` (seconds).
+ */
 export interface DeviceTokenResponse {
   access_token?: string
   token_type?: string
   scope?: string
+  refresh_token?: string
+  expires_in?: number
+  refresh_token_expires_in?: number
   error?: string
   error_description?: string
   interval?: number
 }
 
-/** Result of awaiting a completed device flow. */
+/**
+ * Result of awaiting a completed device flow (or a refresh). Mirrors
+ * StoredCredential; expiry fields are absolute ISO timestamps computed from the
+ * `*_expires_in` seconds at issue time.
+ */
 export interface AuthFlowResult {
-  token: string
-  scopes: string[]
+  accessToken: string
+  refreshToken?: string
+  accessTokenExpiresAt?: string
+  refreshTokenExpiresAt?: string
 }
+
 
 /** Authenticated GitHub user (subset of rest.users.getAuthenticated). */
 export interface AuthenticatedUser {

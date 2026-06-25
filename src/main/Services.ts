@@ -61,7 +61,16 @@ export function buildServices(app: App): Services {
 
   const eventBus = new EventBusImpl()
   const tokens = new SecureTokenService()
-  const accounts = new AccountService(db, tokens, paths)
+  // GitHubAuthService doubles as the TokenRefresher injected into AccountService
+  // so expiring access tokens (ADR-0007, F-1=ON) renew transparently.
+  const ghAuth = new GitHubAuthService()
+  const accounts = new AccountService(db, tokens, paths, ghAuth)
+  // Part C: flag classic OAuth-App accounts for re-auth after the GitHub App switch.
+  try {
+    accounts.markLegacyOAuthAccountsForReauth()
+  } catch (e) {
+    logger.warn('legacy account migration failed', e)
+  }
   const settings = new SettingsService(db)
   const tasks = new TaskRegistry()
 
@@ -73,7 +82,6 @@ export function buildServices(app: App): Services {
   const bootstrap = new AppBootstrapService(codex, accounts, getAppVersion)
   const updates = new UpdateService(eventBus, getAppVersion)
 
-  const ghAuth = new GitHubAuthService()
   const ghApi = new GitHubApiClient(accounts)
   const github = new GitHubProvider({ db, accounts, tokens, auth: ghAuth, api: ghApi })
   const registry = new GitProviderRegistry(github)
