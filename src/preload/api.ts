@@ -8,7 +8,9 @@ import type {
   CodexModel,
   CodexStatus,
   ConnectedAccount,
+  FileContent,
   GenerateReviewParams,
+  GetFileContentParams,
   GitProviderId,
   ListPullRequestsParams,
   ListRepositoriesParams,
@@ -73,7 +75,8 @@ export const reviewMasterApi = {
   prs: {
     list: (params: ListPullRequestsParams) => invoke<PaginatedResult<PullRequest>>(IPC.prs.list, params),
     get: (params: PullRequestRef) => invoke<PullRequestDetail>(IPC.prs.get, params),
-    openWorkspace: (params: PullRequestRef) => invoke<WorkspaceState>(IPC.prs.openWorkspace, params)
+    openWorkspace: (params: PullRequestRef) => invoke<WorkspaceState>(IPC.prs.openWorkspace, params),
+    getFileContent: (params: GetFileContentParams) => invoke<FileContent>(IPC.prs.getFileContent, params)
   },
   review: {
     runPreflight: (params: RunPreflightParams) => invoke<TaskHandle>(IPC.review.runPreflight, params),

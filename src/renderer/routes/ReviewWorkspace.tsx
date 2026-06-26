@@ -206,7 +206,7 @@ export function ReviewWorkspace(): JSX.Element {
           </Banner>
         )}
 
-        <PrDiffPanel workspace={workspace} />
+        <PrDiffPanel workspace={workspace} prRef={ref} />
 
         {/* Floating Generate AI Review button */}
         <div className="pointer-events-none absolute bottom-5 right-5">

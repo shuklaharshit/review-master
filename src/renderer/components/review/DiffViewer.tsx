@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import type { DiffLine, NormalizedDiffFile } from '@shared/types'
+import { Fragment, useMemo, useState } from 'react'
+import type { NormalizedDiffFile } from '@shared/types'
 import { cn } from '../ui/cn'
-import { CopyIcon, CheckIcon, EyeIcon } from '../ui/icons'
+import { CopyIcon, CheckIcon, EyeIcon, FileIcon } from '../ui/icons'
 import { splitPath } from '../../lib/paths'
+import { enrichWithWordDiff } from '../../lib/diffWords'
+import { DiffRows, HunkHeaderRow } from './DiffRows'
 
 const statusTone: Record<string, string> = {
   added: 'text-success',
@@ -16,14 +18,27 @@ const statusTone: Record<string, string> = {
 export function DiffViewer({
   file,
   viewed,
-  onToggleViewed
+  onToggleViewed,
+  onViewFullFile
 }: {
   file: NormalizedDiffFile
   viewed: boolean
   onToggleViewed: () => void
+  /** Opens the full-file modal. Omitted (button hidden) when unavailable. */
+  onViewFullFile?: () => void
 }): JSX.Element {
   const [copied, setCopied] = useState(false)
   const { name } = splitPath(file.path)
+
+  // Whole file is shown only as changed hunks here; word-level segments are
+  // computed once per file so the rows can highlight intra-line edits.
+  const hunks = useMemo(
+    () => file.hunks.map((h) => ({ header: h.header, lines: enrichWithWordDiff(h.lines) })),
+    [file.hunks]
+  )
+
+  // Full-file view only makes sense for inline-able text files.
+  const canViewFull = !!onViewFullFile && !file.isBinary && file.status !== 'binary'
 
   function copyPath(): void {
     void navigator.clipboard.writeText(file.path)
@@ -61,6 +76,16 @@ export function DiffViewer({
         >
           {copied ? <CheckIcon className="h-3.5 w-3.5 text-success" /> : <CopyIcon className="h-3.5 w-3.5" />}
         </button>
+        {canViewFull && (
+          <button
+            type="button"
+            onClick={onViewFullFile}
+            className="flex shrink-0 items-center gap-1 rounded border border-border-strong px-1.5 py-0.5 text-[11px] text-text-muted transition-colors hover:text-text-primary"
+            title="View the entire file with changes highlighted"
+          >
+            <FileIcon className="h-3.5 w-3.5" /> View file
+          </button>
+        )}
         <button
           type="button"
           onClick={onToggleViewed}
@@ -87,50 +112,16 @@ export function DiffViewer({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse font-mono text-[12px] leading-[1.5]">
             <tbody>
-              {file.hunks.map((hunk, hi) => (
-                <HunkRows key={hi} header={hunk.header} lines={hunk.lines} />
+              {hunks.map((hunk, hi) => (
+                <Fragment key={hi}>
+                  <HunkHeaderRow header={hunk.header} />
+                  <DiffRows lines={hunk.lines} />
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
       )}
     </div>
-  )
-}
-
-function HunkRows({ header, lines }: { header: string; lines: DiffLine[] }): JSX.Element {
-  return (
-    <>
-      <tr className="bg-accent-soft/30">
-        <td colSpan={3} className="select-none px-3 py-0.5 text-[11px] text-accent-hover">
-          {header}
-        </td>
-      </tr>
-      {lines.map((line, i) => {
-        const bg =
-          line.type === 'added'
-            ? 'bg-success/10'
-            : line.type === 'removed'
-              ? 'bg-danger/10'
-              : ''
-        const sign = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '
-        const signColor =
-          line.type === 'added' ? 'text-success' : line.type === 'removed' ? 'text-danger' : 'text-text-muted'
-        return (
-          <tr key={i} className={bg}>
-            <td className="w-10 select-none border-r border-border-subtle px-2 text-right text-[10px] text-text-muted">
-              {line.oldLineNumber ?? ''}
-            </td>
-            <td className="w-10 select-none border-r border-border-subtle px-2 text-right text-[10px] text-text-muted">
-              {line.newLineNumber ?? ''}
-            </td>
-            <td className="whitespace-pre px-2 text-text-primary">
-              <span className={cn('mr-1 select-none', signColor)}>{sign}</span>
-              {line.content}
-            </td>
-          </tr>
-        )
-      })}
-    </>
   )
 }

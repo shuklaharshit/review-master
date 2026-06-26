@@ -2,6 +2,8 @@ import type {
   AuthFlowStartResult,
   CheckSummary,
   CommitSummary,
+  FileContent,
+  GetFileContentParams,
   LabelSummary,
   ListPullRequestsParams,
   ListRepositoriesParams,
@@ -225,6 +227,17 @@ export class GitHubProvider implements GitProvider {
       params.number
     )
     return raw.map(mapFile)
+  }
+
+  async getFileContent(params: GetFileContentParams): Promise<FileContent> {
+    const raw = await this.api.getFileContent(
+      params.ref.accountId,
+      params.ref.owner,
+      params.ref.repo,
+      params.path,
+      params.sha
+    )
+    return { path: params.path, sha: params.sha, ...raw }
   }
 
   async getPullRequestChecks(params: PullRequestRef): Promise<CheckSummary[]> {

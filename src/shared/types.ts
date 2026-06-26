@@ -287,6 +287,33 @@ export interface NormalizedDiff {
 }
 
 // ----------------------------------------------------------------------------
+// Full file content (for the "view entire file" modal)
+// ----------------------------------------------------------------------------
+// The diff endpoints only return patch hunks; to show a changed file in the
+// context of its whole content we fetch the file's full text at a specific
+// commit. We read at the head commit for added/modified/renamed files and at
+// the base commit for removed files (the only place the content still exists).
+
+export interface GetFileContentParams {
+  ref: PullRequestRef
+  /** Repo-relative file path. */
+  path: string
+  /** Commit SHA to read the file at (head for live files, base for deletions). */
+  sha: string
+}
+
+export interface FileContent {
+  path: string
+  sha: string
+  /** UTF-8 text, or null when the file is binary or too large to inline. */
+  text: string | null
+  isBinary: boolean
+  /** True when GitHub declined to inline the blob (over its ~1MB size cap). */
+  truncated: boolean
+  byteSize: number
+}
+
+// ----------------------------------------------------------------------------
 // Snapshots
 // ----------------------------------------------------------------------------
 

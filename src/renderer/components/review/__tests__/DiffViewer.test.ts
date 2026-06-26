@@ -67,13 +67,44 @@ describe('DiffViewer', () => {
     expect(container.textContent).toContain('@@ -10,3 +10,4 @@ function foo()')
   })
 
-  it('marks added rows with success background and removed with danger background', () => {
+  it('tints added rows green and removed rows red (GitHub-style cell tints)', () => {
     const { container } = renderViewer(textFile())
     const rows = Array.from(container.querySelectorAll('tbody tr'))
     const addedRow = rows.find((r) => r.textContent?.includes('const fresh = 2'))!
     const removedRow = rows.find((r) => r.textContent?.includes('const old = 2'))!
-    expect(addedRow.className).toContain('bg-success/10')
-    expect(removedRow.className).toContain('bg-danger/10')
+    // The tint now lives on the cells (body + gutter), GitHub-style.
+    expect(addedRow.querySelector('.bg-diff-add-bg')).toBeTruthy()
+    expect(removedRow.querySelector('.bg-diff-del-bg')).toBeTruthy()
+  })
+
+  it('highlights the changed words within a paired removed/added line', () => {
+    const { container } = renderViewer(textFile())
+    const rows = Array.from(container.querySelectorAll('tbody tr'))
+    const addedRow = rows.find((r) => r.textContent?.includes('const fresh = 2'))!
+    // "fresh" differs from the paired "old" line and gets a word-level tint.
+    const changedSpan = Array.from(addedRow.querySelectorAll('span.bg-diff-add-word')).find((s) =>
+      s.textContent?.includes('fresh')
+    )
+    expect(changedSpan).toBeTruthy()
+  })
+
+  it('shows the "View file" button only when onViewFullFile is provided', () => {
+    const onView = vi.fn()
+    const result = render(
+      createElement(DiffViewer, {
+        file: textFile(),
+        viewed: false,
+        onToggleViewed: vi.fn(),
+        onViewFullFile: onView
+      })
+    )
+    open.push(result.unmount)
+    const btn = Array.from(result.container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('View file')
+    )
+    expect(btn).toBeTruthy()
+    click(btn!)
+    expect(onView).toHaveBeenCalledTimes(1)
   })
 
   it('shows binary-file message when the file is binary', () => {

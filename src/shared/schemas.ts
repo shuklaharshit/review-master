@@ -124,6 +124,12 @@ export const PullRequestRefSchema = z.object({
   number: z.number().int().positive()
 })
 
+export const GetFileContentParamsSchema = z.object({
+  ref: PullRequestRefSchema,
+  path: z.string().min(1),
+  sha: z.string().min(1)
+})
+
 export const ListRepositoriesParamsSchema = z.object({
   accountId: z.string().min(1),
   page: z.number().int().positive().optional(),

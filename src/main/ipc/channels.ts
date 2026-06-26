@@ -26,7 +26,8 @@ export const IPC = {
   prs: {
     list: 'prs:list',
     get: 'prs:get',
-    openWorkspace: 'prs:openWorkspace'
+    openWorkspace: 'prs:openWorkspace',
+    getFileContent: 'prs:getFileContent'
   },
   review: {
     runPreflight: 'review:runPreflight',

@@ -21,6 +21,10 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Don't throttle/suspend timers & requestAnimationFrame when the window is
+      // occluded/backgrounded (macOS misreports occluded windows as hidden).
+      // Otherwise rAF-driven UI (e.g. the diff minimap) and timers stall.
+      backgroundThrottling: false,
       preload: join(__dirname, '../preload/index.js')
     }
   })

@@ -13,5 +13,7 @@ export const queryKeys = {
     ['pullRequests', params.accountId, params.repoId, params.filter ?? 'open', params.query ?? ''] as const,
   workspace: (ref: PullRequestRef) =>
     ['workspace', ref.accountId, ref.repoId, ref.number] as const,
-  draft: (ref: PullRequestRef) => ['draft', ref.accountId, ref.repoId, ref.number] as const
+  draft: (ref: PullRequestRef) => ['draft', ref.accountId, ref.repoId, ref.number] as const,
+  fileContent: (ref: PullRequestRef, path: string, sha: string) =>
+    ['fileContent', ref.accountId, ref.repoId, ref.number, sha, path] as const
 }

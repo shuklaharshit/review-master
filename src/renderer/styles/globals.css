@@ -24,6 +24,17 @@
   --performance: #55c2ff;
   --maintainability: #b8e986;
   --regression: #f4b740;
+
+  /* Diff line tints (GitHub-style, tuned for the dark theme). The gutter and
+     word tints are progressively stronger than the row body so additions /
+     deletions read clearly and the exact changed spans stand out. */
+  --diff-add-bg: rgba(61, 220, 151, 0.1);
+  --diff-add-gutter: rgba(61, 220, 151, 0.18);
+  --diff-add-word: rgba(61, 220, 151, 0.32);
+  --diff-del-bg: rgba(255, 92, 122, 0.1);
+  --diff-del-gutter: rgba(255, 92, 122, 0.18);
+  --diff-del-word: rgba(255, 92, 122, 0.32);
+  --diff-hunk-bg: rgba(124, 92, 255, 0.12);
 }
 
 html,

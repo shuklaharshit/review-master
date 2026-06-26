@@ -276,6 +276,50 @@ export class GitHubApiClient {
   }
 
   // -------------------------------------------------------------------------
+  // File content (for "view entire file")
+  // -------------------------------------------------------------------------
+
+  /**
+   * Fetches the full text of one file at a commit via the Contents API. GitHub
+   * returns the blob base64-encoded for files under ~1MB; above that it omits
+   * the content (we surface that as `truncated`). Binary files are detected by
+   * a NUL byte in the decoded bytes and surfaced as `isBinary` (no text).
+   */
+  async getFileContent(
+    accountId: string,
+    owner: string,
+    repo: string,
+    path: string,
+    ref: string
+  ): Promise<{ text: string | null; isBinary: boolean; truncated: boolean; byteSize: number }> {
+    // Only the HTTP call goes through `call()` (so 401 refresh / rate-limit
+    // normalisation applies). Validation/decoding happens after, so the typed
+    // AppError below isn't re-wrapped by normalizeError.
+    const data = await this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.repos.getContent({ owner, repo, path, ref })
+      return res.data
+    })
+
+    // A path that resolves to a directory (or submodule/symlink) comes back as
+    // an array or a non-"file" type — there's no single file to display.
+    if (Array.isArray(data) || data.type !== 'file') {
+      throw appError('not_found', 'That path is not a file.', false, { path })
+    }
+
+    const byteSize = data.size ?? 0
+    const encoded = data.content ?? ''
+    // Over the size cap GitHub returns an empty body — nothing to inline.
+    if (!encoded && byteSize > 0) {
+      return { text: null, isBinary: false, truncated: true, byteSize }
+    }
+    const buf = Buffer.from(encoded, 'base64')
+    if (buf.includes(0)) {
+      return { text: null, isBinary: true, truncated: false, byteSize }
+    }
+    return { text: buf.toString('utf8'), isBinary: false, truncated: false, byteSize }
+  }
+
+  // -------------------------------------------------------------------------
   // Checks & statuses (combine check-runs + legacy commit statuses)
   // -------------------------------------------------------------------------
 

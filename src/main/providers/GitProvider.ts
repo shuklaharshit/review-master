@@ -2,6 +2,8 @@ import type {
   AuthFlowStartResult,
   CheckSummary,
   CommitSummary,
+  FileContent,
+  GetFileContentParams,
   GitProviderId,
   LabelSummary,
   ListPullRequestsParams,
@@ -47,6 +49,9 @@ export interface GitProvider {
 
   getPullRequestCommits(params: PullRequestRef): Promise<CommitSummary[]>
   getPullRequestFiles(params: PullRequestRef): Promise<PullRequestFile[]>
+
+  /** Full text of a single file at a given commit (for the "view entire file" view). */
+  getFileContent(params: GetFileContentParams): Promise<FileContent>
   getPullRequestChecks(params: PullRequestRef): Promise<CheckSummary[]>
   getPullRequestReviews(params: PullRequestRef): Promise<ReviewSummary[]>
   getPullRequestLabels(params: PullRequestRef): Promise<LabelSummary[]>

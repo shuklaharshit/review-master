@@ -8,6 +8,7 @@ import {
   CancelFlowSchema,
   CancelTaskSchema,
   GenerateReviewParamsSchema,
+  GetFileContentParamsSchema,
   HasInstallationsSchema,
   ListPullRequestsParamsSchema,
   ListRepositoriesParamsSchema,
@@ -146,6 +147,7 @@ export function registerIpcHandlers(services: Services): void {
   on(IPC.prs.list, ListPullRequestsParamsSchema, (params) => github.listPullRequests(params))
   on(IPC.prs.get, PullRequestRefSchema, (params) => github.getPullRequest(params))
   on(IPC.prs.openWorkspace, PullRequestRefSchema, (params) => prContext.openWorkspace(params))
+  on(IPC.prs.getFileContent, GetFileContentParamsSchema, (params) => github.getFileContent(params))
 
   // ---- review ----
   on(IPC.review.runPreflight, RunPreflightParamsSchema, (params) => preflight.run(params))

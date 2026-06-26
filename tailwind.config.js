@@ -35,6 +35,15 @@ export default {
           performance: 'var(--performance)',
           maintainability: 'var(--maintainability)',
           regression: 'var(--regression)'
+        },
+        diff: {
+          'add-bg': 'var(--diff-add-bg)',
+          'add-gutter': 'var(--diff-add-gutter)',
+          'add-word': 'var(--diff-add-word)',
+          'del-bg': 'var(--diff-del-bg)',
+          'del-gutter': 'var(--diff-del-gutter)',
+          'del-word': 'var(--diff-del-word)',
+          'hunk-bg': 'var(--diff-hunk-bg)'
         }
       },
       fontFamily: {

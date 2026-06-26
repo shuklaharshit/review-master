@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import type { WorkspaceState } from '@shared/types'
+import { useMemo, useState } from 'react'
+import type { PullRequestRef, WorkspaceState } from '@shared/types'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/Tabs'
 import { PrStateBadge } from '../ui/StatusBadge'
 import { Avatar } from '../ui/misc'
@@ -7,14 +7,23 @@ import { ExternalLinkIcon, GitBranchIcon } from '../ui/icons'
 import { api } from '../../lib/api'
 import { useReviewWorkspaceStore } from '../../stores/reviewWorkspaceStore'
 import { DiffViewer } from './DiffViewer'
+import { FileViewerModal } from './FileViewerModal'
 import { EmptyState } from '../ui/misc'
 
-export function PrDiffPanel({ workspace }: { workspace: WorkspaceState }): JSX.Element {
+export function PrDiffPanel({
+  workspace,
+  prRef
+}: {
+  workspace: WorkspaceState
+  prRef: PullRequestRef
+}): JSX.Element {
   const { pr, diff, preflight } = workspace
   const selectedGroupOrder = useReviewWorkspaceStore((s) => s.selectedGroupOrder)
   const selectedFilePath = useReviewWorkspaceStore((s) => s.selectedFilePath)
   const viewedFiles = useReviewWorkspaceStore((s) => s.viewedFiles)
   const toggleViewed = useReviewWorkspaceStore((s) => s.toggleViewed)
+
+  const [fileViewerOpen, setFileViewerOpen] = useState(false)
 
   const groups = preflight?.analysis?.reviewGroups ?? []
   const activeGroup = groups.find((g) => g.order === selectedGroupOrder) ?? null
@@ -32,7 +41,7 @@ export function PrDiffPanel({ workspace }: { workspace: WorkspaceState }): JSX.E
   }, [activeGroup, viewedFiles])
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-background-elevated">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-background-elevated">
       {/* PR header */}
       <div className="shrink-0 border-b border-border-subtle px-5 py-3">
         <div className="flex items-center gap-2">
@@ -100,6 +109,7 @@ export function PrDiffPanel({ workspace }: { workspace: WorkspaceState }): JSX.E
               file={selectedFile}
               viewed={!!viewedFiles[selectedFile.path]}
               onToggleViewed={() => toggleViewed(selectedFile.path)}
+              onViewFullFile={() => setFileViewerOpen(true)}
             />
           ) : (
             <EmptyState
@@ -116,6 +126,16 @@ export function PrDiffPanel({ workspace }: { workspace: WorkspaceState }): JSX.E
           Commits view is not available in this MVP.
         </TabsContent>
       </Tabs>
+
+      {selectedFile && (
+        <FileViewerModal
+          open={fileViewerOpen}
+          onOpenChange={setFileViewerOpen}
+          file={selectedFile}
+          pr={pr}
+          prRef={prRef}
+        />
+      )}
     </section>
   )
 }
