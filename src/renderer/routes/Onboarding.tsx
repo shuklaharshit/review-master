@@ -8,6 +8,7 @@ import { useAccounts } from '../queries/useAccounts'
 import { useBootstrap } from '../queries/useBootstrap'
 import { useAppStore } from '../stores/appStore'
 import { AddAccountModal } from '../components/account/AddAccountModal'
+import { ThemePicker } from '../components/layout/ThemePicker'
 import { Button } from '../components/ui/Button'
 import { Card, Spinner } from '../components/ui/misc'
 import { AlertTriangleIcon, CheckIcon, CopyIcon, GitHubIcon, PlusIcon } from '../components/ui/icons'
@@ -160,7 +161,17 @@ export function Onboarding() {
           </ChecklistRow>
         </Card>
 
-        <div className="mt-5 flex items-center justify-between">
+        <div className="mt-7">
+          <h2 className="font-display text-[13px] font-semibold text-text-primary">Pick your look</h2>
+          <p className="mt-1 text-[12px] text-text-muted">
+            Optional — choose a theme now or change it any time from Settings.
+          </p>
+          <div className="mt-3">
+            <ThemePicker />
+          </div>
+        </div>
+
+        <div className="mt-7 flex items-center justify-between">
           <button
             type="button"
             className="text-[12px] text-text-muted hover:text-text-secondary"

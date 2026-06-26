@@ -9,7 +9,7 @@ function Section({ title, count, children }: { title: string; count?: number | s
   return (
     <section className="border-b border-border-subtle py-3">
       <div className="mb-2 flex items-center justify-between px-3">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</h3>
+        <h3 className="font-display text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</h3>
         {count !== undefined && <span className="text-[11px] text-text-muted">{count}</span>}
       </div>
       {children}
@@ -42,7 +42,7 @@ export function PrIntelligencePanel({ workspace }: { workspace: WorkspaceState }
   return (
     <aside className="flex w-[320px] shrink-0 flex-col overflow-auto border-l border-border-subtle bg-background">
       <div className="border-b border-border-subtle px-3 py-2.5">
-        <span className="text-[12px] font-semibold uppercase tracking-wide text-text-muted">PR Intelligence</span>
+        <span className="font-display text-[12px] font-semibold uppercase tracking-wide text-text-muted">PR Intelligence</span>
       </div>
 
       <Section title="AI Issues & Risks" count={findings.length}>

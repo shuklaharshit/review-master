@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { BootstrapStatus, CodexSessionState, PullRequestRef, Repository, UpdateStatus } from '@shared/types'
+import { type DesignThemeId, applyDesignTheme, loadStoredTheme } from '../lib/designThemes'
 
 export type Route = 'onboarding' | 'accounts' | 'repos' | 'prs' | 'workspace' | 'settings'
 
@@ -23,8 +24,12 @@ interface AppState {
 
   toasts: Toast[]
 
+  /** Active visual design iteration (see lib/designThemes). */
+  designTheme: DesignThemeId
+
   // navigation
   setRoute: (route: Route) => void
+  setDesignTheme: (id: DesignThemeId) => void
   setActiveAccountId: (id: string | null) => void
   selectRepo: (repo: Repository | null) => void
   openWorkspaceFor: (ref: PullRequestRef) => void
@@ -53,7 +58,13 @@ export const useAppStore = create<AppState>((set) => ({
 
   toasts: [],
 
+  designTheme: loadStoredTheme(),
+
   setRoute: (route) => set({ route }),
+  setDesignTheme: (id) => {
+    applyDesignTheme(id)
+    set({ designTheme: id })
+  },
   setActiveAccountId: (id) => set({ activeAccountId: id }),
   selectRepo: (repo) => set({ selectedRepo: repo, route: repo ? 'prs' : 'repos' }),
   openWorkspaceFor: (ref) => set({ selectedPrRef: ref, route: 'workspace' }),

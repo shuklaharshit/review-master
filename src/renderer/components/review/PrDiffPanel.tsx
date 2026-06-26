@@ -92,7 +92,7 @@ export function PrDiffPanel({
         <TabsContent value="files" className="min-h-0 flex-1 overflow-auto px-5 py-4">
           {activeGroup && (
             <div className="mb-3 flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-accent text-[11px] font-semibold text-white">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-accent text-[11px] font-semibold text-accent-foreground">
                 {activeGroup.order}
               </span>
               <h2 className="text-[14px] font-medium text-text-primary">{activeGroup.title}</h2>

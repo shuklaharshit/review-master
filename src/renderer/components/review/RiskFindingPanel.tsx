@@ -29,8 +29,8 @@ export function RiskFindingPanel({ findings }: { findings: RiskFinding[] }): JSX
   }
 
   return (
-    <div className="space-y-1.5">
-      {summary && <div className="px-3 text-[11px] text-text-muted">{summary}</div>}
+    <div>
+      {summary && <div className="px-3 pb-1.5 text-[11px] text-text-muted">{summary}</div>}
       {findings.map((finding, i) => {
         const ref = finding.fileReferences?.[0]
         const color = riskTypeColor(finding.type)
@@ -40,8 +40,9 @@ export function RiskFindingPanel({ findings }: { findings: RiskFinding[] }): JSX
             type="button"
             onClick={() => navigate(finding)}
             className={cn(
-              'block w-full rounded-md border border-border-subtle bg-background-panel px-3 py-2 text-left transition-colors',
-              ref ? 'hover:border-border-strong hover:bg-background-panel-hover' : 'cursor-default'
+              'block w-full px-3 py-2 text-left transition-colors',
+              i > 0 && 'border-t border-border-subtle',
+              ref ? 'hover:bg-background-panel-hover' : 'cursor-default'
             )}
           >
             <div className="flex items-start gap-2">
@@ -53,11 +54,12 @@ export function RiskFindingPanel({ findings }: { findings: RiskFinding[] }): JSX
               </span>
               <SeverityBadge severity={finding.severity} />
             </div>
-            <div className="ml-5.5 mt-1 flex items-center gap-2 pl-0.5 text-[11px]">
-              <span className="font-medium" style={{ color }}>
+            {/* Meta row, indented to align under the title (icon 14px + gap 8px). */}
+            <div className="mt-1 flex items-baseline gap-1.5 pl-[22px] text-[11px]">
+              <span className="shrink-0 whitespace-nowrap font-medium" style={{ color }}>
                 {riskTypeLabel[finding.type]}
               </span>
-              {ref && <span className="mono truncate text-text-muted">{ref}</span>}
+              {ref && <span className="mono min-w-0 truncate text-text-muted">{ref}</span>}
             </div>
           </button>
         )

@@ -52,7 +52,7 @@ export function ReviewGroupCard({
           <span
             className={cn(
               'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold',
-              active ? 'bg-accent text-white' : 'bg-background-elevated text-text-secondary'
+              active ? 'bg-accent text-accent-foreground' : 'bg-background-elevated text-text-secondary'
             )}
           >
             {group.order}

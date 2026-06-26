@@ -12,6 +12,7 @@ import { Select } from '../components/ui/Select'
 import { Switch } from '../components/ui/Switch'
 import { Avatar, Badge } from '../components/ui/misc'
 import { AddAccountModal } from '../components/account/AddAccountModal'
+import { ThemePicker } from '../components/layout/ThemePicker'
 import { ExternalLinkIcon, GitHubIcon, RefreshIcon } from '../components/ui/icons'
 
 function Section({ title, children }: { title: string; children: ReactNode }): JSX.Element {
@@ -95,6 +96,14 @@ export function Settings(): JSX.Element {
           Done
         </Button>
       </div>
+
+      {/* Appearance */}
+      <Section title="Appearance">
+        <p className="-mt-1 text-[12px] text-text-muted">
+          Pick a system-wide look. Same layout, five distinct skins — your choice is remembered across the app.
+        </p>
+        <ThemePicker />
+      </Section>
 
       {/* Codex */}
       <Section title="Codex">

@@ -15,6 +15,10 @@
   --accent: #7c5cff;
   --accent-hover: #9278ff;
   --accent-soft: rgba(124, 92, 255, 0.16);
+  /* Readable text/icon colour to place ON TOP of an --accent fill (e.g. primary
+     buttons). Defaults to white for dark accents; light accents (carbon lime,
+     nocturne periwinkle, sandstone amber) override this to a dark value. */
+  --accent-foreground: #ffffff;
   --success: #3ddc97;
   --warning: #f4b740;
   --danger: #ff5c7a;
@@ -35,6 +39,214 @@
   --diff-del-gutter: rgba(255, 92, 122, 0.18);
   --diff-del-word: rgba(255, 92, 122, 0.32);
   --diff-hunk-bg: rgba(124, 92, 255, 0.12);
+
+  /* ── Design-system knobs (theme-swappable, see [data-rm-theme] below) ──────
+     Typography, radius, and density live here so a single `data-rm-theme`
+     attribute on <html> can re-skin the entire app without touching layout.
+     Fonts are macOS system faces (CSP forbids remote fonts; this is a darwin
+     desktop app) so each theme has a real typographic identity, offline. */
+  color-scheme: dark;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  --app-font-size: 13px;
+  --app-letter-spacing: 0;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --shadow-panel: none;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   DESIGN ITERATIONS — five distinct skins for the review workspace.
+   Each overrides only design tokens (colour, type, radius, density); the DOM
+   structure and panel layout are identical across all of them. Switch live via
+   the ThemeSwitcher in the header (persists to localStorage). The default
+   :root above IS the "graphite" baseline; selecting it just clears the attr.
+─────────────────────────────────────────────────────────────────────────── */
+
+/* 1 ─ GRAPHITE — refined neutral dark (baseline, readability-tuned). */
+:root[data-rm-theme='graphite'] {
+  --text-secondary: #b4bccc;
+  --text-muted: #8b94a8;
+}
+
+/* 2 ─ PAPER — light editorial. Warm ivory, ink-black serif, oxblood accent.
+   A code review read like a printed document. */
+:root[data-rm-theme='paper'] {
+  color-scheme: light;
+  --background: #f3efe6;
+  --background-elevated: #fbf9f3;
+  --background-panel: #ffffff;
+  --background-panel-hover: #f0eadd;
+  --border-subtle: #e3dccc;
+  --border-strong: #cbc1ab;
+  --text-primary: #211c15;
+  --text-secondary: #4c4438;
+  --text-muted: #897e69;
+  --accent: #9a3420;
+  --accent-hover: #7d2817;
+  --accent-soft: rgba(154, 52, 32, 0.1);
+  --success: #2f7d4f;
+  --warning: #a8780f;
+  --danger: #b23d2c;
+  --info: #2c6790;
+  --bug: #b23d2c;
+  --security: #b5651d;
+  --performance: #2c6790;
+  --maintainability: #4f7d2f;
+  --regression: #a8780f;
+  --diff-add-bg: rgba(47, 125, 79, 0.12);
+  --diff-add-gutter: rgba(47, 125, 79, 0.22);
+  --diff-add-word: rgba(47, 125, 79, 0.34);
+  --diff-del-bg: rgba(178, 61, 44, 0.1);
+  --diff-del-gutter: rgba(178, 61, 44, 0.2);
+  --diff-del-word: rgba(178, 61, 44, 0.32);
+  --diff-hunk-bg: rgba(154, 52, 32, 0.08);
+  --font-sans: 'Charter', 'Iowan Old Style', 'Palatino', Georgia, serif;
+  --font-display: 'New York', 'Hoefler Text', 'Palatino', Georgia, serif;
+  --font-mono: 'SF Mono', Menlo, monospace;
+  --app-font-size: 13.5px;
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --shadow-panel: 0 1px 2px rgba(33, 28, 21, 0.06);
+}
+
+/* 3 ─ NOCTURNE — soft deep-indigo, rounded, airy. Periwinkle accent. */
+:root[data-rm-theme='nocturne'] {
+  --background: #11132a;
+  --background-elevated: #181b38;
+  --background-panel: #1e2245;
+  --background-panel-hover: #272c56;
+  --border-subtle: #2d325e;
+  --border-strong: #3f4684;
+  --text-primary: #eef0ff;
+  --text-secondary: #bcc1ef;
+  --text-muted: #888ec7;
+  --accent: #a5b4ff;
+  --accent-hover: #c3ccff;
+  --accent-soft: rgba(165, 180, 255, 0.16);
+  --accent-foreground: #11132a;
+  --success: #6ee0b0;
+  --warning: #ffd166;
+  --danger: #ff8fa8;
+  --info: #8fd0ff;
+  --bug: #ff8fa8;
+  --security: #ffb482;
+  --performance: #8fd0ff;
+  --maintainability: #b6e98f;
+  --regression: #ffd166;
+  --diff-add-bg: rgba(110, 224, 176, 0.1);
+  --diff-add-gutter: rgba(110, 224, 176, 0.2);
+  --diff-add-word: rgba(110, 224, 176, 0.34);
+  --diff-del-bg: rgba(255, 143, 168, 0.1);
+  --diff-del-gutter: rgba(255, 143, 168, 0.2);
+  --diff-del-word: rgba(255, 143, 168, 0.34);
+  --diff-hunk-bg: rgba(165, 180, 255, 0.14);
+  --font-sans: 'Avenir Next', 'Avenir', 'SF Pro Text', sans-serif;
+  --font-display: 'Avenir Next', 'Avenir', sans-serif;
+  --font-mono: 'SF Mono', Menlo, monospace;
+  --app-font-size: 13.5px;
+  --app-letter-spacing: 0.005em;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-panel: 0 6px 28px rgba(0, 0, 0, 0.35);
+}
+
+/* 4 ─ CARBON — brutalist high-contrast. Pure black, electric-lime accent,
+   stark white structural borders, zero radius, Futura display. */
+:root[data-rm-theme='carbon'] {
+  --background: #000000;
+  --background-elevated: #0a0a0a;
+  --background-panel: #0b0b0b;
+  --background-panel-hover: #181818;
+  --border-subtle: #2b2b2b;
+  --border-strong: #6a6a6a;
+  --text-primary: #ffffff;
+  --text-secondary: #cfcfcf;
+  --text-muted: #949494;
+  --accent: #d6ff3f;
+  --accent-hover: #e8ff7d;
+  --accent-soft: rgba(214, 255, 63, 0.14);
+  --accent-foreground: #000000;
+  --success: #00e676;
+  --warning: #ffb300;
+  --danger: #ff3b3b;
+  --info: #00b0ff;
+  --bug: #ff3b3b;
+  --security: #ff8a00;
+  --performance: #00b0ff;
+  --maintainability: #aeea00;
+  --regression: #ffb300;
+  --diff-add-bg: rgba(0, 230, 118, 0.12);
+  --diff-add-gutter: rgba(0, 230, 118, 0.26);
+  --diff-add-word: rgba(0, 230, 118, 0.4);
+  --diff-del-bg: rgba(255, 59, 59, 0.12);
+  --diff-del-gutter: rgba(255, 59, 59, 0.26);
+  --diff-del-word: rgba(255, 59, 59, 0.4);
+  --diff-hunk-bg: rgba(214, 255, 63, 0.12);
+  --font-sans: 'Helvetica Neue', 'Arial Narrow', Arial, sans-serif;
+  --font-display: 'Futura', 'Helvetica Neue', sans-serif;
+  --font-mono: Menlo, 'SF Mono', monospace;
+  --app-font-size: 13px;
+  --radius-sm: 0px;
+  --radius: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --shadow-panel: none;
+}
+
+/* 5 ─ SANDSTONE — warm dark terminal. Espresso ground, amber accent,
+   typewriter display, humanist Optima body. Retro/utilitarian. */
+:root[data-rm-theme='sandstone'] {
+  --background: #1c1714;
+  --background-elevated: #241d18;
+  --background-panel: #2a221c;
+  --background-panel-hover: #352a22;
+  --border-subtle: #3d3127;
+  --border-strong: #5b4837;
+  --text-primary: #f3e9db;
+  --text-secondary: #d0bea7;
+  --text-muted: #a08c74;
+  --accent: #e08a3c;
+  --accent-hover: #f2a157;
+  --accent-soft: rgba(224, 138, 60, 0.16);
+  --accent-foreground: #1c1714;
+  --success: #9ccc65;
+  --warning: #f0c14b;
+  --danger: #e3705c;
+  --info: #6fb6c9;
+  --bug: #e3705c;
+  --security: #e0a050;
+  --performance: #6fb6c9;
+  --maintainability: #9ccc65;
+  --regression: #f0c14b;
+  --diff-add-bg: rgba(156, 204, 101, 0.12);
+  --diff-add-gutter: rgba(156, 204, 101, 0.22);
+  --diff-add-word: rgba(156, 204, 101, 0.36);
+  --diff-del-bg: rgba(227, 112, 92, 0.12);
+  --diff-del-gutter: rgba(227, 112, 92, 0.22);
+  --diff-del-word: rgba(227, 112, 92, 0.36);
+  --diff-hunk-bg: rgba(224, 138, 60, 0.12);
+  --font-sans: 'Optima', 'Avenir Next', 'SF Pro Text', sans-serif;
+  --font-display: 'American Typewriter', 'Courier New', monospace;
+  --font-mono: Menlo, 'SF Mono', 'Courier New', monospace;
+  --app-font-size: 13.5px;
+  --radius-sm: 4px;
+  --radius: 5px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --shadow-panel: 0 2px 14px rgba(0, 0, 0, 0.4);
 }
 
 html,
@@ -47,11 +259,18 @@ body {
   margin: 0;
   background-color: var(--background);
   color: var(--text-primary);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
+  letter-spacing: var(--app-letter-spacing);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: 13px;
+  font-size: var(--app-font-size);
   line-height: 1.5;
+}
+
+/* Theme display face — applied to headings / brand / section labels so each
+   skin reads with its own typographic voice (serif, geometric, typewriter…). */
+.font-display {
+  font-family: var(--font-display);
 }
 
 *,
@@ -61,7 +280,7 @@ body {
 }
 
 .mono {
-  font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-family: var(--font-mono);
   font-feature-settings: 'liga' 0;
 }
 

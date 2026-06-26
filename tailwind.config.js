@@ -23,7 +23,8 @@ export default {
         accent: {
           DEFAULT: 'var(--accent)',
           hover: 'var(--accent-hover)',
-          soft: 'var(--accent-soft)'
+          soft: 'var(--accent-soft)',
+          foreground: 'var(--accent-foreground)'
         },
         success: 'var(--success)',
         warning: 'var(--warning)',
@@ -47,8 +48,22 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
-        mono: ['"JetBrains Mono"', '"SFMono-Regular"', 'Consolas', '"Liberation Mono"', 'monospace']
+        // Routed through CSS variables so `data-rm-theme` re-skins typography.
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)'],
+        display: ['var(--font-display)']
+      },
+      borderRadius: {
+        // Themeable radius scale (brutalist → 0, soft → large). `full` is fixed.
+        none: '0px',
+        sm: 'var(--radius-sm)',
+        DEFAULT: 'var(--radius)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-xl)',
+        '3xl': 'var(--radius-xl)',
+        full: '9999px'
       }
     }
   },

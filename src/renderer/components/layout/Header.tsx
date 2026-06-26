@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { Tooltip } from '../ui/Tooltip'
 import { GearIcon } from '../ui/icons'
 import { AccountDropdown } from './AccountDropdown'
+import { ThemeSwitcher } from './ThemeSwitcher'
 
 // On macOS the window uses a hidden-inset title bar, so the traffic-light
 // buttons overlay the top-left of the header. Reserve space for them.
@@ -29,7 +30,7 @@ export function Header({ centerSlot }: { centerSlot?: ReactNode }) {
           <span className="text-[13px] font-bold">R</span>
         </div>
         <div className="leading-tight">
-          <div className="text-[13px] font-semibold text-text-primary">{APP_NAME}</div>
+          <div className="font-display text-[13px] font-semibold text-text-primary">{APP_NAME}</div>
           <div className="-mt-0.5 hidden text-[10px] text-text-muted sm:block">{APP_SUBTITLE}</div>
         </div>
       </button>
@@ -37,6 +38,7 @@ export function Header({ centerSlot }: { centerSlot?: ReactNode }) {
       <div className="app-no-drag flex min-w-0 flex-1 items-center justify-center px-4">{centerSlot}</div>
 
       <div className="app-no-drag flex items-center gap-1.5">
+        {showAccountControls && <ThemeSwitcher />}
         {showAccountControls && <AccountDropdown />}
         {showAccountControls && (
           <Tooltip content="Settings">
