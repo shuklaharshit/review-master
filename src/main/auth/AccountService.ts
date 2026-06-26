@@ -6,7 +6,7 @@ import type { Database } from '../db/types'
 import { newId } from '../../shared/ids'
 import { nowIso } from '../../shared/dates'
 import { logger } from '../app/Logger'
-import { tokenKeyForAccount } from './SecureTokenService'
+import { tokenKeyForAccount } from './tokenKeys'
 import type { SafePaths } from '../security/safePaths'
 
 export interface SaveAuthenticatedAccountInput {

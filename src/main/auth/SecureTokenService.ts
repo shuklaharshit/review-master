@@ -2,14 +2,12 @@ import keytar from 'keytar'
 import type { SecureTokenStore } from '../contracts'
 import { appError } from '../../shared/result'
 import { logger } from '../app/Logger'
+import { KEYCHAIN_SERVICE } from './tokenKeys'
 
-/** Keychain service name for all Review Master secrets. */
-export const KEYCHAIN_SERVICE = 'review-master'
-
-/** Builds the canonical token key for a connected account (spec §11.4). */
-export function tokenKeyForAccount(accountId: string): string {
-  return `review-master.github.account.${accountId}`
-}
+// Key helpers live in the keytar-free `./tokenKeys` module so non-keychain code
+// can use them without loading this native module. Re-exported here for
+// backward compatibility, but new code should import them from `./tokenKeys`.
+export { KEYCHAIN_SERVICE, tokenKeyForAccount } from './tokenKeys'
 
 /**
  * OS-keychain backed secret store using keytar.
