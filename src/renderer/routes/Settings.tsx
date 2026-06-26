@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { ReasoningEffort } from '@shared/types'
-import { REASONING_EFFORTS, githubAppInstallUrl } from '@shared/constants'
+import { APP_NAME, APP_SUBTITLE, REASONING_EFFORTS, githubAppInstallUrl } from '@shared/constants'
 import { useSettings, useUpdateSettings, useModels } from '../queries/useSettings'
 import { useAccounts, useRemoveAccount } from '../queries/useAccounts'
 import { useAppStore } from '../stores/appStore'
@@ -13,6 +13,7 @@ import { Switch } from '../components/ui/Switch'
 import { Avatar, Badge } from '../components/ui/misc'
 import { AddAccountModal } from '../components/account/AddAccountModal'
 import { ThemePicker } from '../components/layout/ThemePicker'
+import { Logo } from '../components/layout/Logo'
 import { ExternalLinkIcon, GitHubIcon, RefreshIcon } from '../components/ui/icons'
 
 function Section({ title, children }: { title: string; children: ReactNode }): JSX.Element {
@@ -244,8 +245,19 @@ export function Settings(): JSX.Element {
 
       {/* About */}
       <section className="py-5">
-        <h2 className="mb-1 text-[13px] font-semibold text-text-primary">About</h2>
-        <p className="text-[12px] text-text-muted">Review Master — open source, powered by Codex.</p>
+        <h2 className="mb-3 font-display text-[13px] font-semibold text-text-primary">About</h2>
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-background-elevated text-accent ring-1 ring-inset ring-border-strong">
+            <Logo className="h-7 w-7" />
+          </div>
+          <div className="min-w-0">
+            <div className="font-display text-[14px] font-semibold text-text-primary">{APP_NAME}</div>
+            <div className="text-[12px] text-text-muted">
+              {APP_SUBTITLE} · v{bootstrap?.appVersion ?? '0.1.0'}
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-[12px] text-text-muted">Open source.</p>
       </section>
 
       <AddAccountModal open={addOpen} onOpenChange={setAddOpen} />

@@ -8,6 +8,12 @@ import { registerIpcHandlers } from './ipc/handlers'
 let mainWindow: BrowserWindow | null = null
 let services: Services | null = null
 
+// In dev (`electron .`) there is no app bundle, so the OS shows Electron's
+// default icon. Packaged builds get their icon from build/icon.* via
+// electron-builder; for dev we point at the same source PNG. __dirname is
+// out/main at runtime, so build/ lives two levels up.
+const DEV_ICON_PATH = join(__dirname, '../../build/icon.png')
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -16,6 +22,9 @@ function createWindow(): void {
     minHeight: 680,
     show: false,
     backgroundColor: '#090B10',
+    // Sets the taskbar/window icon on Windows & Linux in dev (ignored on macOS,
+    // which uses the Dock icon set below). Packaged builds use the bundle icon.
+    ...(app.isPackaged ? {} : { icon: DEV_ICON_PATH }),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       contextIsolation: true,
@@ -66,6 +75,16 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     initLogger()
     logger.info('Review Master starting', { version: app.getVersion() })
+
+    // macOS shows the Dock icon from the app bundle; in dev there is none, so
+    // set it explicitly. No-op on other platforms (handled via window icon).
+    if (process.platform === 'darwin' && !app.isPackaged) {
+      try {
+        app.dock?.setIcon(DEV_ICON_PATH)
+      } catch (e) {
+        logger.warn('Failed to set dev dock icon', e)
+      }
+    }
 
     try {
       services = buildServices(app)

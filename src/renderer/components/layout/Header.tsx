@@ -6,6 +6,7 @@ import { Tooltip } from '../ui/Tooltip'
 import { GearIcon } from '../ui/icons'
 import { AccountDropdown } from './AccountDropdown'
 import { ThemeSwitcher } from './ThemeSwitcher'
+import { Logo } from './Logo'
 
 // On macOS the window uses a hidden-inset title bar, so the traffic-light
 // buttons overlay the top-left of the header. Reserve space for them.
@@ -26,8 +27,8 @@ export function Header({ centerSlot }: { centerSlot?: ReactNode }) {
         onClick={() => showAccountControls && setRoute('accounts')}
         className="app-no-drag flex items-center gap-2.5 text-left"
       >
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-soft text-accent-hover">
-          <span className="text-[13px] font-bold">R</span>
+        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-background-elevated text-accent ring-1 ring-inset ring-border-strong">
+          <Logo className="h-[15px] w-[15px]" />
         </div>
         <div className="leading-tight">
           <div className="font-display text-[13px] font-semibold text-text-primary">{APP_NAME}</div>
