@@ -8,6 +8,7 @@ import type { GitProvider } from '../providers/GitProvider'
 import { appError } from '../../shared/result'
 import { nowIso } from '../../shared/dates'
 import { logger } from '../app/Logger'
+import { withReviewBranding } from './reviewBranding'
 import type { ReviewSubmissionDeps } from './prTypes'
 
 export class ReviewSubmissionService {
@@ -55,7 +56,9 @@ export class ReviewSubmissionService {
     try {
       submitted = await this.provider.submitPullRequestReview({
         ref: params.ref,
-        body: draft.markdown,
+        // Attribution footer is injected here only — the stored draft and the
+        // live preview keep the unbranded markdown.
+        body: withReviewBranding(draft.markdown),
         event: params.event ?? 'COMMENT'
       })
     } catch (error) {

@@ -5,6 +5,14 @@
   "main": "./out/main/index.js",
   "author": "Review Master",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shuklaharshit/review-master.git"
+  },
+  "homepage": "https://github.com/shuklaharshit/review-master#readme",
+  "bugs": {
+    "url": "https://github.com/shuklaharshit/review-master/issues"
+  },
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,4 +1,5 @@
 import type { UpdateStatus } from '@shared/types'
+import { APP_REPO_URL } from '@shared/constants'
 import { Button } from '../ui/Button'
 import { AlertTriangleIcon } from '../ui/icons'
 import { api } from '../../lib/api'
@@ -35,7 +36,7 @@ export function ForceUpdateScreen({ status }: { status: UpdateStatus }): JSX.Ele
               : 'Download update'}
           </Button>
         )}
-        <Button variant="ghost" onClick={() => void api.app.openExternal('https://github.com/review-master/review-master/releases')}>
+        <Button variant="ghost" onClick={() => void api.app.openExternal(`${APP_REPO_URL}/releases`)}>
           Open releases
         </Button>
       </div>

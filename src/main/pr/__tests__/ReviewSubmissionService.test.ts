@@ -11,6 +11,7 @@ import type {
   SubmittedReview
 } from '../../../shared/types'
 import type { AppError } from '../../../shared/result'
+import { APP_REPO_URL } from '../../../shared/constants'
 
 // ---------------------------------------------------------------------------
 // Reference example: testing a service against lightweight, typed fakes.
@@ -123,13 +124,12 @@ describe('ReviewSubmissionService.submit', () => {
     const result = await service.submit(submitParams())
 
     expect(result).toEqual(submitted)
-    // Provider called with the draft body and default COMMENT event.
+    // Provider called with the (branded) draft body and default COMMENT event.
     expect(fakes.submitReview).toHaveBeenCalledTimes(1)
-    expect(fakes.submitReview).toHaveBeenCalledWith({
-      ref,
-      body: 'LGTM with a few nits.',
-      event: 'COMMENT'
-    })
+    const call = fakes.submitReview.mock.calls[0][0]
+    expect(call.ref).toEqual(ref)
+    expect(call.event).toBe('COMMENT')
+    expect(call.body).toContain('LGTM with a few nits.')
     // Draft updated to submitted with the returned review id + timestamp.
     expect(fakes.draftsUpdate).toHaveBeenCalledTimes(1)
     const [updatedId, patch] = fakes.draftsUpdate.mock.calls[0]
@@ -141,6 +141,23 @@ describe('ReviewSubmissionService.submit', () => {
     })
     // Review status set to 'reviewed' for the draft's pr + snapshot, with head sha.
     expect(fakes.setStatus).toHaveBeenCalledWith('pr1', 'snap1', 'reviewed', 'head')
+  })
+
+  it('injects the attribution footer into the submitted body only, not the draft', async () => {
+    fakes.submitReview.mockResolvedValue({
+      githubReviewId: 'r1',
+      submittedAt: '2026-06-23T10:00:00Z'
+    })
+
+    await service.submit(submitParams())
+
+    // Footer present on the GitHub body...
+    const body = fakes.submitReview.mock.calls[0][0].body as string
+    expect(body).toContain('AI-assisted review by')
+    expect(body).toContain(APP_REPO_URL)
+    // ...but the persisted draft is never rewritten with branding.
+    const [, patch] = fakes.draftsUpdate.mock.calls[0]
+    expect(patch).not.toHaveProperty('markdown')
   })
 
   it('passes through a non-default event', async () => {

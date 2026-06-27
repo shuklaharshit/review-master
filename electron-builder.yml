@@ -22,5 +22,5 @@ linux:
   category: Development
 publish:
   provider: github
-  owner: review-master
+  owner: shuklaharshit
   repo: review-master
