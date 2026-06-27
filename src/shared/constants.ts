@@ -3,6 +3,17 @@ import type { AppSettings, ReasoningEffort } from './types'
 export const APP_NAME = 'Review Master'
 export const APP_SUBTITLE = 'AI-assisted PR reviews, powered by Codex'
 
+/**
+ * Public GitHub repo for the app — used in the attribution footer on submitted
+ * reviews and the Settings → About link.
+ *
+ * Canonical source of truth is `package.json` (`repository`/`homepage`/`bugs`),
+ * which is where tooling and other agents look first. This constant mirrors it
+ * for runtime use without importing package.json into the renderer bundle; if
+ * the repo ever moves, update both here and package.json.
+ */
+export const APP_REPO_URL = 'https://github.com/shuklaharshit/review-master'
+
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultPreflightModel: 'gpt-5.4',
   defaultPreflightReasoningEffort: 'medium',
