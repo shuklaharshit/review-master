@@ -25,4 +25,13 @@ describe('withReviewBranding', () => {
     const once = withReviewBranding('Review.')
     expect(withReviewBranding(once)).toBe(once)
   })
+
+  it('still stamps a body that merely links to the repo in prose (not just the footer)', () => {
+    const body = `Looks good. See ${APP_REPO_URL}/issues/12 for prior context.`
+    const out = withReviewBranding(body)
+    expect(out).toContain(`${APP_REPO_URL}/issues/12`)
+    // footer appended exactly once, despite the URL already appearing in prose
+    expect(out.split('AI-assisted review by')).toHaveLength(2)
+    expect(out.trimEnd().endsWith(`[${APP_NAME}](${APP_REPO_URL})*`)).toBe(true)
+  })
 })

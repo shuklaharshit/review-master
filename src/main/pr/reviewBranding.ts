@@ -8,13 +8,17 @@ import { APP_NAME, APP_REPO_URL } from '../../shared/constants'
 // an italic link) so GitHub renders it without relying on inline HTML.
 const FOOTER_SEPARATOR = '\n\n---\n'
 const FOOTER_LINE = `*🔀 AI-assisted review by [${APP_NAME}](${APP_REPO_URL})*`
+const FOOTER_BLOCK = `${FOOTER_SEPARATOR}${FOOTER_LINE}`
 
 /**
  * Returns the review markdown with the attribution footer appended. Idempotent:
- * if the body already carries the attribution (defensive — drafts never do),
- * it's returned unchanged so we never double-stamp.
+ * if THIS exact footer is already the body's tail it's returned unchanged so we
+ * never double-stamp. The guard matches the footer block at the end — NOT any
+ * mention of the repo URL, since a reviewer may legitimately link to the repo
+ * (or a /issues, /releases path) in the review prose and must still get stamped.
  */
 export function withReviewBranding(markdown: string): string {
-  if (markdown.includes(APP_REPO_URL)) return markdown
-  return `${markdown.trimEnd()}${FOOTER_SEPARATOR}${FOOTER_LINE}\n`
+  const trimmed = markdown.trimEnd()
+  if (trimmed.endsWith(FOOTER_BLOCK)) return `${trimmed}\n`
+  return `${trimmed}${FOOTER_BLOCK}\n`
 }
