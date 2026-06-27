@@ -299,7 +299,7 @@ describe('GitHubProvider.fetchReviewContext', () => {
     const runs: GhCheckRun[] = [{ name: 'ci', status: 'completed', conclusion: 'success' }]
     const statuses: GhCommitStatus[] = [{ context: 'legacy', state: 'success' }]
     const reviews: GhReview[] = [
-      { user: { login: 'rev' }, state: 'APPROVED', submitted_at: '2026-01-02T00:00:00Z' }
+      { id: 1, user: { login: 'rev' }, state: 'APPROVED', submitted_at: '2026-01-02T00:00:00Z' }
     ]
     const labels: GhLabel[] = [{ name: 'bug', color: 'red' }]
     const assignees: GhUser[] = [{ login: 'alice' }]

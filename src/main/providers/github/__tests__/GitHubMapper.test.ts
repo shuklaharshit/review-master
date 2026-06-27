@@ -3,11 +3,22 @@ import {
   mapRepository,
   mapPullRequest,
   mapFile,
+  mapIssueComment,
+  mapReview,
+  mapReviewComment,
+  buildReviewThreads,
   repositoryId,
   pullRequestId,
   providerRepoId
 } from '../GitHubMapper'
-import type { GhRepo, GhPullRequest, GhFile } from '../GitHubTypes'
+import type {
+  GhRepo,
+  GhPullRequest,
+  GhFile,
+  GhIssueComment,
+  GhReview,
+  GhReviewComment
+} from '../GitHubTypes'
 
 const repo: GhRepo = {
   id: 12345,
@@ -177,5 +188,65 @@ describe('mapFile status + binary detection', () => {
     const mapped = mapFile(file)
     expect(mapped.status).toBe('renamed')
     expect(mapped.oldPath).toBe('src/old.ts')
+  })
+})
+
+describe('comment mappers', () => {
+  it('maps an issue comment', () => {
+    const c: GhIssueComment = {
+      id: 7,
+      user: { login: 'octocat', avatar_url: 'a.png' },
+      body: 'Nice work',
+      created_at: '2026-01-01T00:00:00Z',
+      html_url: 'https://github.com/x/1#issuecomment-7'
+    }
+    const m = mapIssueComment(c)
+    expect(m).toMatchObject({ id: '7', body: 'Nice work', author: { login: 'octocat' } })
+  })
+
+  it('carries the review body + state + id', () => {
+    const r: GhReview = {
+      id: 99,
+      user: { login: 'rev' },
+      state: 'CHANGES_REQUESTED',
+      body: 'Please fix',
+      submitted_at: '2026-01-02T00:00:00Z'
+    }
+    const m = mapReview(r)
+    expect(m).toMatchObject({ id: '99', state: 'CHANGES_REQUESTED', body: 'Please fix' })
+  })
+
+  it('maps an inline review comment with anchor + reply linkage', () => {
+    const c: GhReviewComment = {
+      id: 5,
+      user: { login: 'rev' },
+      body: 'bug here',
+      path: 'src/a.ts',
+      line: 12,
+      side: 'RIGHT',
+      diff_hunk: '@@ -1 +1 @@',
+      in_reply_to_id: 3
+    }
+    const m = mapReviewComment(c)
+    expect(m).toMatchObject({ id: '5', path: 'src/a.ts', line: 12, side: 'RIGHT', inReplyToId: '3' })
+  })
+})
+
+describe('buildReviewThreads', () => {
+  it('groups replies under their root and orders by time', () => {
+    const comments = [
+      mapReviewComment({ id: 1, path: 'a.ts', line: 3, side: 'RIGHT', created_at: '2026-01-01T00:00:00Z', body: 'root' }),
+      mapReviewComment({ id: 2, path: 'a.ts', line: 3, side: 'RIGHT', in_reply_to_id: 1, created_at: '2026-01-01T01:00:00Z', body: 'reply' }),
+      mapReviewComment({ id: 9, path: 'b.ts', line: 8, side: 'LEFT', created_at: '2026-01-01T02:00:00Z', body: 'other' })
+    ]
+    const threads = buildReviewThreads(comments)
+    expect(threads).toHaveLength(2)
+    const first = threads.find((t) => t.id === '1')!
+    expect(first.comments.map((c) => c.id)).toEqual(['1', '2'])
+    expect(first.path).toBe('a.ts')
+    expect(first.line).toBe(3)
+    // threads sorted by their first comment's time
+    expect(threads[0].id).toBe('1')
+    expect(threads[1].id).toBe('9')
   })
 })

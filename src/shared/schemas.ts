@@ -175,10 +175,42 @@ export const SaveDraftParamsSchema = z.object({
   markdown: z.string()
 })
 
+const DiffSideSchema = z.enum(['LEFT', 'RIGHT'])
+
+export const DraftInlineCommentSchema = z.object({
+  localId: z.string().min(1),
+  path: z.string().min(1),
+  line: z.number().int().positive(),
+  side: DiffSideSchema,
+  startLine: z.number().int().positive().optional(),
+  startSide: DiffSideSchema.optional(),
+  body: z.string().min(1).max(65536),
+  lineContent: z.string().optional()
+})
+
 export const SubmitDraftParamsSchema = z.object({
   draftId: z.string().min(1),
   ref: PullRequestRefSchema,
-  event: z.enum(['COMMENT', 'REQUEST_CHANGES', 'APPROVE']).optional()
+  event: z.enum(['COMMENT', 'REQUEST_CHANGES', 'APPROVE']).optional(),
+  comments: z.array(DraftInlineCommentSchema).max(200).optional()
+})
+
+export const FinishReviewParamsSchema = z.object({
+  ref: PullRequestRefSchema,
+  body: z.string().max(65536).optional(),
+  event: z.enum(['COMMENT', 'REQUEST_CHANGES', 'APPROVE']).optional(),
+  comments: z.array(DraftInlineCommentSchema).max(200).optional()
+})
+
+export const CreateCommentParamsSchema = z.object({
+  ref: PullRequestRefSchema,
+  body: z.string().min(1).max(65536)
+})
+
+export const ReplyReviewCommentParamsSchema = z.object({
+  ref: PullRequestRefSchema,
+  inReplyToId: z.string().min(1),
+  body: z.string().min(1).max(65536)
 })
 
 export const AppSettingsPatchSchema = z

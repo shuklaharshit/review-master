@@ -148,9 +148,45 @@ export interface GhCommitStatus {
 }
 
 export interface GhReview {
+  id: number
   user?: GhUser | null
   state: string
+  body?: string | null
+  html_url?: string
   submitted_at?: string | null
+}
+
+/** A top-level PR comment (issues API). */
+export interface GhIssueComment {
+  id: number
+  user?: GhUser | null
+  body?: string | null
+  html_url?: string
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+/** An inline review comment (pulls comments API). */
+export interface GhReviewComment {
+  id: number
+  user?: GhUser | null
+  body?: string | null
+  path: string
+  line?: number | null
+  original_line?: number | null
+  start_line?: number | null
+  side?: string | null
+  diff_hunk?: string | null
+  in_reply_to_id?: number | null
+  html_url?: string
+  created_at?: string | null
+}
+
+/** Result of creating a comment / reply. */
+export interface GhCreatedComment {
+  id: number
+  html_url?: string
+  created_at?: string | null
 }
 
 export interface GhLabel {

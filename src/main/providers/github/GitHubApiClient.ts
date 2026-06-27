@@ -7,14 +7,27 @@ import type {
   GhCheckRun,
   GhCommit,
   GhCommitStatus,
+  GhCreatedComment,
   GhCreatedReview,
   GhFile,
+  GhIssueComment,
   GhLabel,
   GhPullRequest,
   GhRepo,
   GhReview,
+  GhReviewComment,
   GhUser
 } from './GitHubTypes'
+
+/** A single inline comment passed to createReview (GitHub line-based API). */
+export interface CreateReviewComment {
+  path: string
+  body: string
+  line: number
+  side?: 'LEFT' | 'RIGHT'
+  start_line?: number
+  start_side?: 'LEFT' | 'RIGHT'
+}
 
 /** A narrow view of the Octokit/HTTP error we care about. */
 interface OctokitError {
@@ -395,6 +408,42 @@ export class GitHubApiClient {
     })
   }
 
+  /** Top-level PR comments (the conversation tab). */
+  async listIssueComments(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<GhIssueComment[]> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: number,
+        per_page: 100
+      })
+      return res.data as unknown as GhIssueComment[]
+    })
+  }
+
+  /** Inline review comments (anchored to diff lines). */
+  async listReviewComments(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<GhReviewComment[]> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.pulls.listReviewComments({
+        owner,
+        repo,
+        pull_number: number,
+        per_page: 100
+      })
+      return res.data as unknown as GhReviewComment[]
+    })
+  }
+
   /** Assignees + requested reviewers come from the PR object itself. */
   async getAssigneesAndReviewers(
     accountId: string,
@@ -421,7 +470,12 @@ export class GitHubApiClient {
     owner: string,
     repo: string,
     number: number,
-    params: { event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'; body: string; commitId?: string }
+    params: {
+      event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
+      body: string
+      commitId?: string
+      comments?: CreateReviewComment[]
+    }
   ): Promise<GhCreatedReview> {
     return this.call(accountId, async (octokit) => {
       const res = await octokit.rest.pulls.createReview({
@@ -430,9 +484,52 @@ export class GitHubApiClient {
         pull_number: number,
         event: params.event,
         body: params.body,
-        commit_id: params.commitId
+        commit_id: params.commitId,
+        // Line-based inline comments; cast keeps us off Octokit's legacy
+        // position-based comment shape.
+        comments: params.comments as unknown as undefined
       })
       return res.data as unknown as GhCreatedReview
+    })
+  }
+
+  /** Posts a top-level PR comment. */
+  async createIssueComment(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number,
+    body: string
+  ): Promise<GhCreatedComment> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: number,
+        body
+      })
+      return res.data as unknown as GhCreatedComment
+    })
+  }
+
+  /** Replies to an existing inline review-comment thread. */
+  async replyReviewComment(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number,
+    commentId: number,
+    body: string
+  ): Promise<GhCreatedComment> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.pulls.createReplyForReviewComment({
+        owner,
+        repo,
+        pull_number: number,
+        comment_id: commentId,
+        body
+      })
+      return res.data as unknown as GhCreatedComment
     })
   }
 }

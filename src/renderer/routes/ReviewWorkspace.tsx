@@ -7,12 +7,14 @@ import { PreflightConfirmModal } from '../components/review/PreflightConfirmModa
 import { AiReviewConfirmModal } from '../components/review/AiReviewConfirmModal'
 import { ProgressModal } from '../components/review/ProgressModal'
 import { ReviewDraftModal } from '../components/review/ReviewDraftModal'
+import { SubmitReviewModal } from '../components/review/SubmitReviewModal'
 import { Button } from '../components/ui/Button'
 import { Tooltip } from '../components/ui/Tooltip'
 import { Spinner } from '../components/ui/misc'
-import { AlertTriangleIcon, ZapIcon, RefreshIcon } from '../components/ui/icons'
+import { AlertTriangleIcon, ZapIcon, RefreshIcon, MessageIcon } from '../components/ui/icons'
 import { useAppStore } from '../stores/appStore'
 import { useReviewWorkspaceStore } from '../stores/reviewWorkspaceStore'
+import { usePendingReviewStore } from '../stores/pendingReviewStore'
 import { useTaskStore } from '../stores/taskStore'
 import { useWorkspace, useRunPreflight, useGenerateReview, useInvalidateWorkspace } from '../queries/useWorkspace'
 import { queryKeys } from '../queries/keys'
@@ -33,6 +35,7 @@ export function ReviewWorkspace(): JSX.Element {
   const setWorkspace = useReviewWorkspaceStore((s) => s.setWorkspace)
   const resetUi = useReviewWorkspaceStore((s) => s.resetUi)
   const storedSnapshotId = useReviewWorkspaceStore((s) => s.snapshotId)
+  const resetPendingReview = usePendingReviewStore((s) => s.reset)
 
   const runPreflight = useRunPreflight()
   const generateReview = useGenerateReview()
@@ -40,6 +43,8 @@ export function ReviewWorkspace(): JSX.Element {
   const [dismissedPreflight, setDismissedPreflight] = useState(false)
   const [showReviewConfirm, setShowReviewConfirm] = useState(false)
   const [showDraft, setShowDraft] = useState(false)
+  const [showFinishReview, setShowFinishReview] = useState(false)
+  const pendingCommentCount = usePendingReviewStore((s) => s.comments.length)
   const [preflightTaskId, setPreflightTaskId] = useState<string | null>(null)
   const [reviewTaskId, setReviewTaskId] = useState<string | null>(null)
 
@@ -53,9 +58,10 @@ export function ReviewWorkspace(): JSX.Element {
     setWorkspace(workspace)
     if (workspace.snapshot.id !== storedSnapshotId) {
       resetUi(workspace.snapshot.id)
+      resetPendingReview(workspace.snapshot.id)
       setDismissedPreflight(false)
     }
-  }, [workspace, storedSnapshotId, setWorkspace, resetUi])
+  }, [workspace, storedSnapshotId, setWorkspace, resetUi, resetPendingReview])
 
   // React to preflight task completion. Evict the finished task so its activity
   // log doesn't stay resident for the rest of the session.
@@ -208,8 +214,18 @@ export function ReviewWorkspace(): JSX.Element {
 
         <PrDiffPanel workspace={workspace} prRef={ref} />
 
-        {/* Floating Generate AI Review button */}
-        <div className="pointer-events-none absolute bottom-5 right-5">
+        {/* Floating review actions */}
+        <div className="pointer-events-none absolute bottom-5 right-5 flex flex-col items-end gap-2">
+          {pendingCommentCount > 0 && !hasDraft && (
+            <Button
+              variant="secondary"
+              size="lg"
+              className="pointer-events-auto shadow-xl"
+              onClick={() => setShowFinishReview(true)}
+            >
+              <MessageIcon className="h-4 w-4" /> Finish review ({pendingCommentCount})
+            </Button>
+          )}
           <Tooltip
             content={
               !codexAvailable
@@ -223,6 +239,7 @@ export function ReviewWorkspace(): JSX.Element {
               {hasDraft ? (
                 <Button variant="primary" size="lg" className="shadow-xl" onClick={() => setShowDraft(true)}>
                   Open AI Draft
+                  {pendingCommentCount > 0 ? ` (${pendingCommentCount})` : ''}
                 </Button>
               ) : (
                 <Button
@@ -279,8 +296,23 @@ export function ReviewWorkspace(): JSX.Element {
       />
 
       {showDraft && draft && (
-        <ReviewDraftModal open={showDraft} onOpenChange={setShowDraft} draft={draft} prRef={ref} />
+        <ReviewDraftModal
+          open={showDraft}
+          onOpenChange={setShowDraft}
+          draft={draft}
+          prRef={ref}
+          authorLogin={workspace.pr.author?.login}
+          prState={workspace.pr.state}
+        />
       )}
+
+      <SubmitReviewModal
+        open={showFinishReview}
+        onOpenChange={setShowFinishReview}
+        prRef={ref}
+        authorLogin={workspace.pr.author?.login}
+        prState={workspace.pr.state}
+      />
     </div>
   )
 }

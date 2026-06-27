@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
-import { createElement } from 'react'
+import { createElement, type ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { NormalizedDiffFile } from '@shared/types'
 import { DiffViewer } from '../DiffViewer'
 import { click, render } from './renderHelper'
+
+// DiffViewer uses the reply-comment mutation (TanStack Query), so renders need
+// a client in scope.
+const qc = new QueryClient()
+function withQuery(el: ReactElement): ReactElement {
+  return createElement(QueryClientProvider, { client: qc }, el)
+}
 
 const open: Array<() => void> = []
 afterEach(() => {
@@ -36,7 +44,7 @@ function textFile(): NormalizedDiffFile {
 }
 
 function renderViewer(file: NormalizedDiffFile, viewed = false, onToggleViewed = vi.fn()) {
-  const result = render(createElement(DiffViewer, { file, viewed, onToggleViewed }))
+  const result = render(withQuery(createElement(DiffViewer, { file, viewed, onToggleViewed })))
   open.push(result.unmount)
   return { ...result, onToggleViewed }
 }
@@ -91,12 +99,14 @@ describe('DiffViewer', () => {
   it('shows the "View file" button only when onViewFullFile is provided', () => {
     const onView = vi.fn()
     const result = render(
-      createElement(DiffViewer, {
-        file: textFile(),
-        viewed: false,
-        onToggleViewed: vi.fn(),
-        onViewFullFile: onView
-      })
+      withQuery(
+        createElement(DiffViewer, {
+          file: textFile(),
+          viewed: false,
+          onToggleViewed: vi.fn(),
+          onViewFullFile: onView
+        })
+      )
     )
     open.push(result.unmount)
     const btn = Array.from(result.container.querySelectorAll('button')).find((b) =>

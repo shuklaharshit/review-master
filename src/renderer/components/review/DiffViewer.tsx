@@ -1,10 +1,12 @@
 import { Fragment, useMemo, useState } from 'react'
-import type { NormalizedDiffFile } from '@shared/types'
+import type { NormalizedDiffFile, PullRequestRef, ReviewCommentThread } from '@shared/types'
 import { cn } from '../ui/cn'
-import { CopyIcon, CheckIcon, EyeIcon, FileIcon } from '../ui/icons'
-import { splitPath } from '../../lib/paths'
-import { enrichWithWordDiff } from '../../lib/diffWords'
+import { CopyIcon, CheckIcon, EyeIcon, FileIcon, MessageIcon } from '../ui/icons'
+import { enrichWithWordDiff, type RenderableDiffLine } from '../../lib/diffWords'
 import { DiffRows, HunkHeaderRow } from './DiffRows'
+import { usePendingReviewStore, anchorKey, lineAnchor } from '../../stores/pendingReviewStore'
+import { useReplyReviewComment } from '../../queries/useConversation'
+import { CommentComposer, ExistingThreadView, PendingCommentView } from './InlineComments'
 
 const statusTone: Record<string, string> = {
   added: 'text-success',
@@ -19,16 +21,37 @@ export function DiffViewer({
   file,
   viewed,
   onToggleViewed,
-  onViewFullFile
+  onViewFullFile,
+  prRef,
+  threads = [],
+  enableComments = true
 }: {
   file: NormalizedDiffFile
   viewed: boolean
   onToggleViewed: () => void
   /** Opens the full-file modal. Omitted (button hidden) when unavailable. */
   onViewFullFile?: () => void
+  /** PR ref — required to post inline replies. */
+  prRef?: PullRequestRef
+  /** Existing inline-comment threads (all files; filtered here by path). */
+  threads?: ReviewCommentThread[]
+  /** Whether the add-inline-comment affordance is shown. */
+  enableComments?: boolean
 }): JSX.Element {
   const [copied, setCopied] = useState(false)
-  const { name } = splitPath(file.path)
+
+  // Composer anchor currently open for a brand-new pending comment.
+  const [composer, setComposer] = useState<{ key: string; side: 'LEFT' | 'RIGHT'; line: number; content: string } | null>(
+    null
+  )
+
+  const pendingComments = usePendingReviewStore((s) => s.comments)
+  const addComment = usePendingReviewStore((s) => s.addComment)
+  const updateComment = usePendingReviewStore((s) => s.updateComment)
+  const removeComment = usePendingReviewStore((s) => s.removeComment)
+  const reply = useReplyReviewComment(prRef ?? null)
+
+  const commentsEnabled = enableComments && !!onViewFullFile // inline viewer only (modal omits onViewFullFile)
 
   // Whole file is shown only as changed hunks here; word-level segments are
   // computed once per file so the rows can highlight intra-line edits.
@@ -37,13 +60,98 @@ export function DiffViewer({
     [file.hunks]
   )
 
-  // Full-file view only makes sense for inline-able text files.
+  // Index existing threads + pending comments by diff-line anchor.
+  const threadsByAnchor = useMemo(() => {
+    const map = new Map<string, ReviewCommentThread[]>()
+    for (const t of threads) {
+      if (t.path !== file.path || !t.line || !t.side) continue
+      const key = anchorKey(t.side, t.line)
+      const bucket = map.get(key)
+      if (bucket) bucket.push(t)
+      else map.set(key, [t])
+    }
+    return map
+  }, [threads, file.path])
+
+  const pendingByAnchor = useMemo(() => {
+    const map = new Map<string, typeof pendingComments>()
+    for (const c of pendingComments) {
+      if (c.path !== file.path) continue
+      const key = anchorKey(c.side, c.line)
+      const bucket = map.get(key)
+      if (bucket) bucket.push(c)
+      else map.set(key, [c])
+    }
+    return map
+  }, [pendingComments, file.path])
+
+  const fileThreadCount = useMemo(
+    () => threads.filter((t) => t.path === file.path).length,
+    [threads, file.path]
+  )
+  const filePendingCount = pendingComments.filter((c) => c.path === file.path).length
+
   const canViewFull = !!onViewFullFile && !file.isBinary && file.status !== 'binary'
 
   function copyPath(): void {
     void navigator.clipboard.writeText(file.path)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1200)
+  }
+
+  function onRequestComment(line: RenderableDiffLine): void {
+    const anchor = lineAnchor(line)
+    if (!anchor) return
+    setComposer({ key: anchorKey(anchor.side, anchor.line), side: anchor.side, line: anchor.line, content: line.content })
+  }
+
+  function renderLineExtras(line: RenderableDiffLine): JSX.Element | null {
+    const anchor = lineAnchor(line)
+    if (!anchor) return null
+    const key = anchorKey(anchor.side, anchor.line)
+    const lineThreads = threadsByAnchor.get(key) ?? []
+    const linePending = pendingByAnchor.get(key) ?? []
+    const showComposer = composer?.key === key
+    if (lineThreads.length === 0 && linePending.length === 0 && !showComposer) return null
+
+    return (
+      <div className="space-y-2 py-1">
+        {lineThreads.map((t) => (
+          <ExistingThreadView
+            key={t.id}
+            thread={t}
+            replyBusy={reply.isPending}
+            onReply={prRef ? (body) => reply.mutate({ ref: prRef, inReplyToId: t.id, body }) : undefined}
+          />
+        ))}
+        {linePending.map((c) => (
+          <PendingCommentView
+            key={c.localId}
+            comment={c}
+            onUpdate={(body) => updateComment(c.localId, body)}
+            onRemove={() => removeComment(c.localId)}
+          />
+        ))}
+        {showComposer && composer && (
+          <CommentComposer
+            placeholder="Leave a comment on this line…"
+            submitLabel="Add comment"
+            autoFocus
+            onSubmit={(body) => {
+              addComment({
+                path: file.path,
+                line: composer.line,
+                side: composer.side,
+                body,
+                lineContent: composer.content
+              })
+              setComposer(null)
+            }}
+            onCancel={() => setComposer(null)}
+          />
+        )}
+      </div>
+    )
   }
 
   return (
@@ -64,6 +172,15 @@ export function DiffViewer({
             </span>
           )}
         </div>
+        {(fileThreadCount > 0 || filePendingCount > 0) && (
+          <span
+            className="inline-flex shrink-0 items-center gap-1 text-[11px] text-text-muted"
+            title={`${fileThreadCount} thread(s), ${filePendingCount} pending`}
+          >
+            <MessageIcon className="h-3.5 w-3.5" />
+            {fileThreadCount + filePendingCount}
+          </span>
+        )}
         <span className="mono shrink-0 text-[11px]">
           <span className="text-success">+{file.additions}</span> <span className="text-danger">-{file.deletions}</span>
         </span>
@@ -115,7 +232,11 @@ export function DiffViewer({
               {hunks.map((hunk, hi) => (
                 <Fragment key={hi}>
                   <HunkHeaderRow header={hunk.header} />
-                  <DiffRows lines={hunk.lines} />
+                  <DiffRows
+                    lines={hunk.lines}
+                    onRequestComment={commentsEnabled ? onRequestComment : undefined}
+                    renderLineExtras={commentsEnabled ? renderLineExtras : undefined}
+                  />
                 </Fragment>
               ))}
             </tbody>

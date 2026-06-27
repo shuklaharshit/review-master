@@ -6,8 +6,11 @@ import { Avatar } from '../ui/misc'
 import { ExternalLinkIcon, GitBranchIcon } from '../ui/icons'
 import { api } from '../../lib/api'
 import { useReviewWorkspaceStore } from '../../stores/reviewWorkspaceStore'
+import { useConversation } from '../../queries/useConversation'
 import { DiffViewer } from './DiffViewer'
 import { FileViewerModal } from './FileViewerModal'
+import { ConversationTab } from './ConversationTab'
+import { CommitsTab } from './CommitsTab'
 import { EmptyState } from '../ui/misc'
 
 export function PrDiffPanel({
@@ -17,13 +20,19 @@ export function PrDiffPanel({
   workspace: WorkspaceState
   prRef: PullRequestRef
 }): JSX.Element {
-  const { pr, diff, preflight } = workspace
+  const { pr, diff, preflight, context } = workspace
   const selectedGroupOrder = useReviewWorkspaceStore((s) => s.selectedGroupOrder)
   const selectedFilePath = useReviewWorkspaceStore((s) => s.selectedFilePath)
   const viewedFiles = useReviewWorkspaceStore((s) => s.viewedFiles)
   const toggleViewed = useReviewWorkspaceStore((s) => s.toggleViewed)
 
   const [fileViewerOpen, setFileViewerOpen] = useState(false)
+
+  // Conversation drives the Discussion tab and inline threads on the diff.
+  const conversation = useConversation(prRef)
+  const threads = conversation.data?.threads ?? []
+  const commentCount =
+    (conversation.data?.issueComments.length ?? 0) + (conversation.data?.threads.length ?? 0)
 
   const groups = preflight?.analysis?.reviewGroups ?? []
   const activeGroup = groups.find((g) => g.order === selectedGroupOrder) ?? null
@@ -80,13 +89,17 @@ export function PrDiffPanel({
       {/* Tabs */}
       <Tabs defaultValue="files" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="shrink-0 border-b border-border-subtle px-5">
-          <TabsTrigger value="discussion" disabled>
-            Discussion
-          </TabsTrigger>
-          <TabsTrigger value="commits" disabled>
-            Commits
-          </TabsTrigger>
           <TabsTrigger value="files">Files</TabsTrigger>
+          <TabsTrigger value="commits">
+            Commits
+            {context.commits.length > 0 && (
+              <span className="ml-1.5 text-[11px] text-text-muted">{context.commits.length}</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="discussion">
+            Discussion
+            {commentCount > 0 && <span className="ml-1.5 text-[11px] text-text-muted">{commentCount}</span>}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="files" className="min-h-0 flex-1 overflow-auto px-5 py-4">
@@ -110,6 +123,8 @@ export function PrDiffPanel({
               viewed={!!viewedFiles[selectedFile.path]}
               onToggleViewed={() => toggleViewed(selectedFile.path)}
               onViewFullFile={() => setFileViewerOpen(true)}
+              prRef={prRef}
+              threads={threads}
             />
           ) : (
             <EmptyState
@@ -119,11 +134,12 @@ export function PrDiffPanel({
           )}
         </TabsContent>
 
-        <TabsContent value="discussion" className="p-6 text-center text-[12px] text-text-muted">
-          Discussion view is not available in this MVP.
+        <TabsContent value="commits" className="min-h-0 flex-1 overflow-auto px-5 py-4">
+          <CommitsTab commits={context.commits} />
         </TabsContent>
-        <TabsContent value="commits" className="p-6 text-center text-[12px] text-text-muted">
-          Commits view is not available in this MVP.
+
+        <TabsContent value="discussion" className="min-h-0 flex-1 overflow-auto px-5 py-4">
+          <ConversationTab prRef={prRef} />
         </TabsContent>
       </Tabs>
 

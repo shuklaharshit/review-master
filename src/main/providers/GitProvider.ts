@@ -2,6 +2,8 @@ import type {
   AuthFlowStartResult,
   CheckSummary,
   CommitSummary,
+  CreateCommentParams,
+  DiffSide,
   FileContent,
   GetFileContentParams,
   GitProviderId,
@@ -9,10 +11,13 @@ import type {
   ListPullRequestsParams,
   ListRepositoriesParams,
   PaginatedResult,
+  PostedComment,
+  PrConversation,
   PullRequest,
   PullRequestDetail,
   PullRequestFile,
   PullRequestRef,
+  ReplyReviewCommentParams,
   Repository,
   ReviewContext,
   ReviewSummary,
@@ -21,11 +26,22 @@ import type {
   UserSummary
 } from '../../shared/types'
 
+/** One inline comment to attach to a submitted review (line-based). */
+export interface SubmitReviewInlineComment {
+  path: string
+  body: string
+  line: number
+  side?: DiffSide
+  startLine?: number
+  startSide?: DiffSide
+}
+
 export interface SubmitReviewParams {
   ref: PullRequestRef
   body: string
   event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
   commitId?: string
+  comments?: SubmitReviewInlineComment[]
 }
 
 /** Provider abstraction (spec §10). MVP implements GitHub only. */
@@ -57,6 +73,14 @@ export interface GitProvider {
   getPullRequestLabels(params: PullRequestRef): Promise<LabelSummary[]>
   getPullRequestAssignees(params: PullRequestRef): Promise<UserSummary[]>
 
+  /** Aggregated discussion: issue comments, reviews (with bodies), inline threads. */
+  getPullRequestConversation(params: PullRequestRef): Promise<PrConversation>
+
   fetchReviewContext(params: PullRequestRef): Promise<ReviewContext>
   submitPullRequestReview(params: SubmitReviewParams): Promise<SubmittedReview>
+
+  /** Posts a top-level PR comment. */
+  createComment(params: CreateCommentParams): Promise<PostedComment>
+  /** Replies to an existing inline review-comment thread. */
+  replyToReviewComment(params: ReplyReviewCommentParams): Promise<PostedComment>
 }

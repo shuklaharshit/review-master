@@ -8,17 +8,22 @@ import type {
   CodexModel,
   CodexStatus,
   ConnectedAccount,
+  CreateCommentParams,
   FileContent,
+  FinishReviewParams,
   GenerateReviewParams,
   GetFileContentParams,
   GitProviderId,
   ListPullRequestsParams,
   ListRepositoriesParams,
   PaginatedResult,
+  PostedComment,
+  PrConversation,
   PullRequest,
   PullRequestDetail,
   PullRequestRef,
   RemoveAccountOptions,
+  ReplyReviewCommentParams,
   Repository,
   ReviewDraft,
   RunPreflightParams,
@@ -76,7 +81,11 @@ export const reviewMasterApi = {
     list: (params: ListPullRequestsParams) => invoke<PaginatedResult<PullRequest>>(IPC.prs.list, params),
     get: (params: PullRequestRef) => invoke<PullRequestDetail>(IPC.prs.get, params),
     openWorkspace: (params: PullRequestRef) => invoke<WorkspaceState>(IPC.prs.openWorkspace, params),
-    getFileContent: (params: GetFileContentParams) => invoke<FileContent>(IPC.prs.getFileContent, params)
+    getFileContent: (params: GetFileContentParams) => invoke<FileContent>(IPC.prs.getFileContent, params),
+    getConversation: (params: PullRequestRef) => invoke<PrConversation>(IPC.prs.getConversation, params),
+    createComment: (params: CreateCommentParams) => invoke<PostedComment>(IPC.prs.createComment, params),
+    replyReviewComment: (params: ReplyReviewCommentParams) =>
+      invoke<PostedComment>(IPC.prs.replyReviewComment, params)
   },
   review: {
     runPreflight: (params: RunPreflightParams) => invoke<TaskHandle>(IPC.review.runPreflight, params),
@@ -84,6 +93,7 @@ export const reviewMasterApi = {
     getDraft: (params: PullRequestRef) => invoke<ReviewDraft | null>(IPC.review.getDraft, params),
     saveDraft: (params: SaveDraftParams) => invoke<void>(IPC.review.saveDraft, params),
     submitDraft: (params: SubmitDraftParams) => invoke<SubmittedReview>(IPC.review.submitDraft, params),
+    finishReview: (params: FinishReviewParams) => invoke<SubmittedReview>(IPC.review.finishReview, params),
     cancelTask: (taskId: string) => invoke<void>(IPC.review.cancelTask, { taskId }),
     markReviewed: (params: PullRequestRef) => invoke<void>(IPC.review.markReviewed, params)
   },
