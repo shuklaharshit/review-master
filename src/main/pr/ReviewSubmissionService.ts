@@ -37,19 +37,15 @@ export class ReviewSubmissionService {
       throw appError('draft_not_found', 'Review draft no longer exists.', false)
     }
     const inlineComments = params.comments ?? []
+    const event = params.event ?? 'COMMENT'
     const hasBody = !!draft.markdown && draft.markdown.trim().length > 0
-    // A review is submittable if it has a body OR at least one inline comment
-    // (GitHub allows a COMMENT/REQUEST_CHANGES review made purely of line notes).
-    if (!hasBody && inlineComments.length === 0) {
-      throw appError('empty_draft', 'Cannot submit an empty review.', true)
+    // An Approve needs no content; Comment/Request-changes must carry a body or
+    // at least one inline comment (GitHub rejects an empty one of those).
+    if (event !== 'APPROVE' && !hasBody && inlineComments.length === 0) {
+      throw appError('empty_draft', 'Add a summary or inline comments, or choose Approve.', true)
     }
 
-    const submitted = await this.performSubmit(
-      params.ref,
-      draft.markdown,
-      params.event ?? 'COMMENT',
-      inlineComments
-    )
+    const submitted = await this.performSubmit(params.ref, draft.markdown, event, inlineComments)
 
     // On success: update draft + review status.
     const submittedAt = submitted.submittedAt || nowIso()
@@ -76,17 +72,14 @@ export class ReviewSubmissionService {
    */
   async finishReview(params: FinishReviewParams): Promise<SubmittedReview> {
     const inlineComments = params.comments ?? []
+    const event = params.event ?? 'COMMENT'
     const hasBody = !!params.body && params.body.trim().length > 0
-    if (!hasBody && inlineComments.length === 0) {
-      throw appError('empty_draft', 'Cannot submit an empty review.', true)
+    // Approve may be empty; Comment/Request-changes need a body or inline notes.
+    if (event !== 'APPROVE' && !hasBody && inlineComments.length === 0) {
+      throw appError('empty_draft', 'Add a summary or inline comments, or choose Approve.', true)
     }
 
-    const submitted = await this.performSubmit(
-      params.ref,
-      params.body ?? '',
-      params.event ?? 'COMMENT',
-      inlineComments
-    )
+    const submitted = await this.performSubmit(params.ref, params.body ?? '', event, inlineComments)
 
     this.markReviewed(params.ref)
     this.log.info('hand-authored review submitted', {
@@ -133,8 +126,10 @@ export class ReviewSubmissionService {
       return await this.provider.submitPullRequestReview({
         ref,
         // Attribution footer is injected here only — the stored draft and the
-        // live preview keep the unbranded markdown.
-        body: withReviewBranding(body),
+        // live preview keep the unbranded markdown. A content-free review (e.g.
+        // a bare Approve) stays empty so we don't turn "no comment" into a
+        // footer-only comment.
+        body: body.trim().length > 0 ? withReviewBranding(body) : '',
         event,
         comments: inline
       })

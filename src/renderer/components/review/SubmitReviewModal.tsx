@@ -49,7 +49,8 @@ export function SubmitReviewModal({
       : undefined
   const effectiveEvent: ReviewEvent = disabledReason && event !== 'COMMENT' ? 'COMMENT' : event
 
-  const canSubmit = summary.trim().length > 0 || pendingComments.length > 0
+  // Approve needs no content; Comment/Request-changes require a summary or notes.
+  const canSubmit = effectiveEvent === 'APPROVE' || summary.trim().length > 0 || pendingComments.length > 0
 
   async function submit(): Promise<void> {
     setError(null)

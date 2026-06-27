@@ -16,6 +16,8 @@ import type {
   GitProviderId,
   ListPullRequestsParams,
   ListRepositoriesParams,
+  MergePullRequestParams,
+  MergeResult,
   PaginatedResult,
   PostedComment,
   PrConversation,
@@ -85,7 +87,8 @@ export const reviewMasterApi = {
     getConversation: (params: PullRequestRef) => invoke<PrConversation>(IPC.prs.getConversation, params),
     createComment: (params: CreateCommentParams) => invoke<PostedComment>(IPC.prs.createComment, params),
     replyReviewComment: (params: ReplyReviewCommentParams) =>
-      invoke<PostedComment>(IPC.prs.replyReviewComment, params)
+      invoke<PostedComment>(IPC.prs.replyReviewComment, params),
+    merge: (params: MergePullRequestParams) => invoke<MergeResult>(IPC.prs.merge, params)
   },
   review: {
     runPreflight: (params: RunPreflightParams) => invoke<TaskHandle>(IPC.review.runPreflight, params),

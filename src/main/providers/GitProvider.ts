@@ -10,6 +10,8 @@ import type {
   LabelSummary,
   ListPullRequestsParams,
   ListRepositoriesParams,
+  MergePullRequestParams,
+  MergeResult,
   PaginatedResult,
   PostedComment,
   PrConversation,
@@ -83,4 +85,7 @@ export interface GitProvider {
   createComment(params: CreateCommentParams): Promise<PostedComment>
   /** Replies to an existing inline review-comment thread. */
   replyToReviewComment(params: ReplyReviewCommentParams): Promise<PostedComment>
+
+  /** Merges the pull request with the chosen method. */
+  mergePullRequest(params: MergePullRequestParams): Promise<MergeResult>
 }

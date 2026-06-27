@@ -493,6 +493,27 @@ export class GitHubApiClient {
     })
   }
 
+  /** Merges a PR with the given method. Throws normalized AppErrors on 405/409. */
+  async mergePull(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number,
+    params: { merge_method: 'merge' | 'squash' | 'rebase'; commit_title?: string; commit_message?: string }
+  ): Promise<{ merged: boolean; sha?: string; message?: string }> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.pulls.merge({
+        owner,
+        repo,
+        pull_number: number,
+        merge_method: params.merge_method,
+        commit_title: params.commit_title,
+        commit_message: params.commit_message
+      })
+      return { merged: res.data.merged, sha: res.data.sha, message: res.data.message }
+    })
+  }
+
   /** Posts a top-level PR comment. */
   async createIssueComment(
     accountId: string,

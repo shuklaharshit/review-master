@@ -12,6 +12,7 @@ import {
   GenerateReviewParamsSchema,
   GetFileContentParamsSchema,
   HasInstallationsSchema,
+  MergePullRequestParamsSchema,
   ReplyReviewCommentParamsSchema,
   ListPullRequestsParamsSchema,
   ListRepositoriesParamsSchema,
@@ -156,6 +157,7 @@ export function registerIpcHandlers(services: Services): void {
   on(IPC.prs.replyReviewComment, ReplyReviewCommentParamsSchema, (params) =>
     github.replyToReviewComment(params)
   )
+  on(IPC.prs.merge, MergePullRequestParamsSchema, (params) => github.mergePullRequest(params))
 
   // ---- review ----
   on(IPC.review.runPreflight, RunPreflightParamsSchema, (params) => preflight.run(params))

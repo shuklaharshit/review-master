@@ -665,6 +665,22 @@ export interface FinishReviewParams {
   comments?: DraftInlineComment[]
 }
 
+export type MergeMethod = 'merge' | 'squash' | 'rebase'
+
+export interface MergePullRequestParams {
+  ref: PullRequestRef
+  method: MergeMethod
+  /** Optional commit title/message (merge + squash only; ignored for rebase). */
+  commitTitle?: string
+  commitMessage?: string
+}
+
+export interface MergeResult {
+  merged: boolean
+  sha?: string
+  message?: string
+}
+
 export interface CreateCommentParams {
   ref: PullRequestRef
   body: string

@@ -30,7 +30,8 @@ export const IPC = {
     getFileContent: 'prs:getFileContent',
     getConversation: 'prs:getConversation',
     createComment: 'prs:createComment',
-    replyReviewComment: 'prs:replyReviewComment'
+    replyReviewComment: 'prs:replyReviewComment',
+    merge: 'prs:merge'
   },
   review: {
     runPreflight: 'review:runPreflight',

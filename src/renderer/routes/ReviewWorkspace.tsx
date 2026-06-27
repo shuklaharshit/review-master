@@ -8,6 +8,7 @@ import { AiReviewConfirmModal } from '../components/review/AiReviewConfirmModal'
 import { ProgressModal } from '../components/review/ProgressModal'
 import { ReviewDraftModal } from '../components/review/ReviewDraftModal'
 import { SubmitReviewModal } from '../components/review/SubmitReviewModal'
+import { MergeModal } from '../components/review/MergeModal'
 import { Button } from '../components/ui/Button'
 import { Tooltip } from '../components/ui/Tooltip'
 import { Spinner } from '../components/ui/misc'
@@ -44,6 +45,7 @@ export function ReviewWorkspace(): JSX.Element {
   const [showReviewConfirm, setShowReviewConfirm] = useState(false)
   const [showDraft, setShowDraft] = useState(false)
   const [showFinishReview, setShowFinishReview] = useState(false)
+  const [showMerge, setShowMerge] = useState(false)
   const pendingCommentCount = usePendingReviewStore((s) => s.comments.length)
   const [preflightTaskId, setPreflightTaskId] = useState<string | null>(null)
   const [reviewTaskId, setReviewTaskId] = useState<string | null>(null)
@@ -212,7 +214,12 @@ export function ReviewWorkspace(): JSX.Element {
           </Banner>
         )}
 
-        <PrDiffPanel workspace={workspace} prRef={ref} />
+        <PrDiffPanel
+          workspace={workspace}
+          prRef={ref}
+          onReviewChanges={() => setShowFinishReview(true)}
+          onMerge={() => setShowMerge(true)}
+        />
 
         {/* Floating review actions */}
         <div className="pointer-events-none absolute bottom-5 right-5 flex flex-col items-end gap-2">
@@ -312,6 +319,14 @@ export function ReviewWorkspace(): JSX.Element {
         prRef={ref}
         authorLogin={workspace.pr.author?.login}
         prState={workspace.pr.state}
+      />
+
+      <MergeModal
+        open={showMerge}
+        onOpenChange={setShowMerge}
+        prRef={ref}
+        prTitle={workspace.pr.title}
+        prNumber={workspace.pr.number}
       />
     </div>
   )

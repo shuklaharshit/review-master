@@ -8,6 +8,8 @@ import type {
   LabelSummary,
   ListPullRequestsParams,
   ListRepositoriesParams,
+  MergePullRequestParams,
+  MergeResult,
   PaginatedResult,
   PostedComment,
   PrConversation,
@@ -413,6 +415,36 @@ export class GitHubProvider implements GitProvider {
       params.body
     )
     return { id: String(created.id), htmlUrl: created.html_url, createdAt: created.created_at ?? undefined }
+  }
+
+  // -------------------------------------------------------------------------
+  // Merge
+  // -------------------------------------------------------------------------
+
+  async mergePullRequest(params: MergePullRequestParams): Promise<MergeResult> {
+    const { ref } = params
+    try {
+      return await this.api.mergePull(ref.accountId, ref.owner, ref.repo, ref.number, {
+        merge_method: params.method,
+        commit_title: params.commitTitle,
+        commit_message: params.commitMessage
+      })
+    } catch (error) {
+      throw this.mapMergeError(error)
+    }
+  }
+
+  private mapMergeError(error: unknown): unknown {
+    const e = error as { code?: string; details?: { status?: number }; message?: string }
+    // 405 → not mergeable (checks/branch protection); 409 → conflict or the head
+    // moved since the page loaded. GitHubApiClient surfaces both as github_api_error.
+    if (e?.code === 'github_api_error') {
+      return appError('merge_failed', e.message || 'GitHub could not merge this pull request.', true, e?.details)
+    }
+    if (e?.code === 'not_found') {
+      return appError('pr_closed', 'The pull request could not be found or is closed.', false)
+    }
+    return error
   }
 
   // -------------------------------------------------------------------------

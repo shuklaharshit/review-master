@@ -202,6 +202,13 @@ export const FinishReviewParamsSchema = z.object({
   comments: z.array(DraftInlineCommentSchema).max(200).optional()
 })
 
+export const MergePullRequestParamsSchema = z.object({
+  ref: PullRequestRefSchema,
+  method: z.enum(['merge', 'squash', 'rebase']),
+  commitTitle: z.string().max(1024).optional(),
+  commitMessage: z.string().max(65536).optional()
+})
+
 export const CreateCommentParamsSchema = z.object({
   ref: PullRequestRefSchema,
   body: z.string().min(1).max(65536)

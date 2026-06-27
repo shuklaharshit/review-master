@@ -208,7 +208,10 @@ export function ReviewDraftModal({
                 variant="primary"
                 size="sm"
                 loading={submitDraft.isPending}
-                disabled={streaming || (!markdown.trim() && pendingComments.length === 0)}
+                disabled={
+                  streaming ||
+                  (effectiveEvent !== 'APPROVE' && !markdown.trim() && pendingComments.length === 0)
+                }
                 onClick={() => void submit()}
               >
                 {submitError ? 'Retry submit' : 'Submit Review'}

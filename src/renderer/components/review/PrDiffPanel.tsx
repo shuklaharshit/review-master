@@ -3,7 +3,9 @@ import type { PullRequestRef, WorkspaceState } from '@shared/types'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/Tabs'
 import { PrStateBadge } from '../ui/StatusBadge'
 import { Avatar } from '../ui/misc'
-import { ExternalLinkIcon, GitBranchIcon } from '../ui/icons'
+import { Button } from '../ui/Button'
+import { Tooltip } from '../ui/Tooltip'
+import { ExternalLinkIcon, GitBranchIcon, MessageIcon, GitMergeIcon } from '../ui/icons'
 import { api } from '../../lib/api'
 import { useReviewWorkspaceStore } from '../../stores/reviewWorkspaceStore'
 import { useConversation } from '../../queries/useConversation'
@@ -15,10 +17,16 @@ import { EmptyState } from '../ui/misc'
 
 export function PrDiffPanel({
   workspace,
-  prRef
+  prRef,
+  onReviewChanges,
+  onMerge
 }: {
   workspace: WorkspaceState
   prRef: PullRequestRef
+  /** Opens the review-submission modal (Approve / Comment / Request changes). */
+  onReviewChanges?: () => void
+  /** Opens the merge confirmation modal. */
+  onMerge?: () => void
 }): JSX.Element {
   const { pr, diff, preflight, context } = workspace
   const selectedGroupOrder = useReviewWorkspaceStore((s) => s.selectedGroupOrder)
@@ -58,13 +66,21 @@ export function PrDiffPanel({
           <span className="mono text-[12px] text-text-muted">
             {preflight?.analysis?.pr.repoFullName ?? ''} #{pr.number}
           </span>
-          <button
-            type="button"
-            onClick={() => pr.htmlUrl && void api.app.openExternal(pr.htmlUrl)}
-            className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-text-muted hover:bg-background-panel-hover hover:text-text-primary"
-          >
-            <ExternalLinkIcon className="h-3.5 w-3.5" /> Open on GitHub
-          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => pr.htmlUrl && void api.app.openExternal(pr.htmlUrl)}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-text-muted hover:bg-background-panel-hover hover:text-text-primary"
+            >
+              <ExternalLinkIcon className="h-3.5 w-3.5" /> Open on GitHub
+            </button>
+            {onReviewChanges && pr.state === 'open' && (
+              <Button variant="secondary" size="sm" onClick={onReviewChanges}>
+                <MessageIcon className="h-3.5 w-3.5" /> Review changes
+              </Button>
+            )}
+            {onMerge && pr.state === 'open' && <MergeButton draft={pr.draft} mergeable={pr.mergeable} onMerge={onMerge} />}
+          </div>
         </div>
         <h1 className="mt-1.5 text-[16px] font-semibold leading-snug text-text-primary">{pr.title}</h1>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-text-muted">
@@ -153,5 +169,31 @@ export function PrDiffPanel({
         />
       )}
     </section>
+  )
+}
+
+function MergeButton({
+  draft,
+  mergeable,
+  onMerge
+}: {
+  draft?: boolean
+  mergeable?: boolean | null
+  onMerge: () => void
+}): JSX.Element {
+  // mergeable === false means GitHub has computed a conflict; null is "unknown"
+  // (still computing) — allow the attempt and let the API report the result.
+  const reason = draft ? 'Draft pull requests cannot be merged.' : mergeable === false ? 'This branch has conflicts that must be resolved.' : undefined
+  const button = (
+    <Button variant="primary" size="sm" disabled={!!reason} onClick={onMerge}>
+      <GitMergeIcon className="h-3.5 w-3.5" /> Merge
+    </Button>
+  )
+  return reason ? (
+    <Tooltip content={reason}>
+      <span className="inline-flex">{button}</span>
+    </Tooltip>
+  ) : (
+    button
   )
 }
