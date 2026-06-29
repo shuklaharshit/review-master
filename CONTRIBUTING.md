@@ -7,13 +7,12 @@ Workflows for working in Review Master. Read [`AGENTS.md`](./AGENTS.md) and [`AR
 ```bash
 nvm use                  # uses the Node version pinned in .nvmrc (Node 22)
 yarn install            # builds native modules (better-sqlite3, keytar) for Electron
-cp .env.example .env     # set REVIEW_MASTER_GITHUB_CLIENT_ID (public OAuth Client ID)
 # Install + log in to Codex once, in a terminal:
 npm install -g @openai/codex && codex login
 yarn dev
 ```
 
-A real GitHub OAuth **Client ID** is required for login (see `.env.example` for how to register one — tick "Enable Device Flow"). It is public, not a secret.
+No GitHub config needed: the app's public GitHub App identity (client id + slug) is baked into `src/shared/constants.ts` — neither is a secret (device flow, no client secret/private key). To target your **own** GitHub App instead, set `REVIEW_MASTER_GITHUB_CLIENT_ID` / `REVIEW_MASTER_GITHUB_APP_SLUG` in a local `.env` (git-ignored, loaded by `src/main/loadEnv.ts`); they override the baked-in defaults.
 
 ## Before every commit
 

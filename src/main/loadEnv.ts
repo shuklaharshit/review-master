@@ -5,8 +5,9 @@
 // GITHUB_CLIENT_ID) is evaluated. ESM evaluates imports depth-first in source
 // order, so this side effect runs before the rest of the import graph.
 //
-// In packaged builds the .env file is not shipped; provide the client id via
-// the real environment, or bake it into shared/constants.ts (it is public).
+// The canonical GitHub App identity is baked into shared/constants.ts (it's
+// public, not a secret). A local .env is OPTIONAL here and only OVERRIDES that
+// default — e.g. a fork pointing the device flow at its own GitHub App.
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 

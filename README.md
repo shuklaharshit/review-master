@@ -11,7 +11,7 @@ Review Master is a desktop app that turns a chaotic PR diff into a guided review
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](./LICENSE)
 [![Tests](https://img.shields.io/github/actions/workflow/status/shuklaharshit/review-master/test.yml?branch=main&style=flat-square&label=tests)](https://github.com/shuklaharshit/review-master/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/v/release/shuklaharshit/review-master?style=flat-square&include_prereleases&sort=semver)](https://github.com/shuklaharshit/review-master/releases)
-[![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square)](#prerequisites)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](#prerequisites)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](./CONTRIBUTING.md)
 [![Stars](https://img.shields.io/github/stars/shuklaharshit/review-master?style=flat-square)](https://github.com/shuklaharshit/review-master/stargazers)
 
@@ -73,11 +73,11 @@ Most AI reviewers are a paid SaaS bot that you bolt onto your repo and that ship
 
 Review Master's bet is ownership: it's the only open-source reviewer that runs as a **local desktop app on your own model account**. If you'd rather have a hosted bot manage everything for you, the SaaS tools above are excellent at that — this is the tool for people who want to keep their code and their keys on their own machine.
 
-> **Today:** GitHub only; primary platform is macOS (Windows/Linux build targets are configured but less exercised). GitLab and Bitbucket are stubbed as "coming soon."
+> **Today:** GitHub only (GitLab and Bitbucket are stubbed as "coming soon"). Built and tested on **macOS** — it's an Electron app with Windows and Linux build targets configured, so it should run there too, but those are less exercised (and the UI's system fonts are tuned for macOS). **Try it on Windows/Linux and please [open an issue](https://github.com/shuklaharshit/review-master/issues) or a PR** if something's off.
 
 ## Prerequisites
 
-- **macOS** (primary target), Node.js **20+**
+- **macOS** (tested) — or Windows/Linux (should work; less exercised — feedback welcome). Node.js **20+**
 - [Yarn](https://classic.yarnpkg.com/) (this project uses Yarn strictly)
 - [Codex CLI](https://github.com/openai/codex): `npm install -g @openai/codex`, then `codex login`
 - `git` on your `PATH` (recommended; otherwise the GitHub API patch fallback is used)
@@ -103,12 +103,14 @@ To package installers locally: `yarn build && yarn electron-builder`.
 
 ## Configuration
 
-Review Master authenticates to GitHub as a **GitHub App via the OAuth device flow** (no embedded secret, no dependency on the `gh` CLI). Set the App's public identity via environment variables (see `src/shared/constants.ts` and `.env`):
+**Nothing to configure.** Review Master ships pointing at the public **[Review Master GitHub App](https://github.com/apps/review-master-ai)**, so on first run you just:
 
-- `REVIEW_MASTER_GITHUB_CLIENT_ID` — the GitHub App's public client id
-- `REVIEW_MASTER_GITHUB_APP_SLUG` — the App slug (the `<slug>` in `github.com/apps/<slug>`)
+1. Connect your GitHub account (an in-app device-flow login — no embedded secret, no dependency on the `gh` CLI).
+2. Install the GitHub App on the repositories you want to review (the app links you straight to GitHub's install page).
 
-Tokens obtained through the flow are stored in your **OS keychain** — never in SQLite, logs, or the renderer.
+The App's identity is public by design — the device flow uses a public client id with **no client secret and no private key** (see [ADR-0007](./docs/github-app-migration.md)) — so it's baked into `src/shared/constants.ts`. Tokens obtained through the flow are stored in your **OS keychain**, never in SQLite, logs, or the renderer.
+
+> **Forking?** To point the device flow at your own GitHub App instead, set `REVIEW_MASTER_GITHUB_CLIENT_ID` and `REVIEW_MASTER_GITHUB_APP_SLUG` (in a local `.env` for dev, or the real environment) — they override the baked-in defaults.
 
 ## Architecture
 

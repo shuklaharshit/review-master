@@ -1,7 +1,7 @@
 # Plan: Migrate auth from classic OAuth App → GitHub App
 
 > **Status:** Implemented (Parts B–E) and live-verified (real device-flow login + install + repo search confirmed working). Tracked by [ADR-0007](./adr/0007-github-app-over-oauth-app.md), which supersedes [ADR-0002](./adr/0002-github-device-flow.md).
-> **App registered** with decisions F-1=ON (refresh tokens) and F-3="Any account". No private key generated (not needed — device flow / user-to-server only). The Client ID and slug are **not committed** — they're supplied via env (`REVIEW_MASTER_GITHUB_CLIENT_ID` / `REVIEW_MASTER_GITHUB_APP_SLUG`); see `.env.example`.
+> **App registered** with decisions F-1=ON (refresh tokens) and F-3="Any account". No private key generated (not needed — device flow / user-to-server only). The Client ID and slug are **public, not secrets**, so they're **baked into `src/shared/constants.ts`** as the canonical `review-master-ai` App (a clone works out of the box). A fork can override them via `REVIEW_MASTER_GITHUB_CLIENT_ID` / `REVIEW_MASTER_GITHUB_APP_SLUG` (a local `.env` in dev, or the real environment).
 
 ## Why
 
