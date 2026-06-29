@@ -18,11 +18,18 @@ Review Master is a desktop app that turns a chaotic PR diff into a guided review
 </div>
 
 <!--
-  HERO: drop a short (<5MB) screen recording of a full review at assets/hero.gif
-  (open a PR → preflight map → generate review → submit). See assets/CAPTURE.md.
+  HERO: a committed .mp4 referenced by a relative path does NOT autoplay inline
+  on GitHub, so we show a clickable poster that opens the video in GitHub's
+  viewer. To get an autoplaying INLINE video instead, drag assets/hero.mp4 into a
+  GitHub PR/issue comment, copy the generated https://github.com/user-attachments/…
+  URL, and replace the block below with:
+    <video src="PASTE_USER_ATTACHMENTS_URL" controls muted autoplay loop width="860"></video>
 -->
 <div align="center">
-  <img src="assets/hero.gif" alt="Review Master walking through a pull-request review" width="860" />
+  <a href="assets/hero.mp4">
+    <img src="assets/hero-poster.png" alt="Watch the Review Master walkthrough" width="860" />
+  </a>
+  <p><em>▶ <a href="assets/hero.mp4">Watch the full walkthrough — preflight to submitted review (48s)</a></em></p>
 </div>
 
 ## Why Review Master
