@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { PullRequestRef, PullRequestState } from '@shared/types'
 import { Dialog, DialogContent } from '../ui/Dialog'
@@ -33,6 +33,16 @@ export function SubmitReviewModal({
   const [summary, setSummary] = useState('')
   const [event, setEvent] = useState<ReviewEvent>('COMMENT')
   const [error, setError] = useState<string | null>(null)
+
+  // This modal is mounted unconditionally, so reset its (privileged) local state
+  // each time it opens or the PR changes — otherwise a prior review's summary,
+  // chosen action, or error would carry into the next PR/session.
+  useEffect(() => {
+    if (!open) return
+    setSummary('')
+    setEvent('COMMENT')
+    setError(null)
+  }, [open, prRef.accountId, prRef.repoId, prRef.number])
 
   const pendingComments = usePendingReviewStore((s) => s.comments)
   const clearPending = usePendingReviewStore((s) => s.clear)

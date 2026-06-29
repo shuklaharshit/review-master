@@ -121,7 +121,7 @@ export function DiffViewer({
             key={t.id}
             thread={t}
             replyBusy={reply.isPending}
-            onReply={prRef ? (body) => reply.mutate({ ref: prRef, inReplyToId: t.id, body }) : undefined}
+            onReply={prRef ? (body) => reply.mutateAsync({ ref: prRef, inReplyToId: t.id, body }) : undefined}
           />
         ))}
         {linePending.map((c) => (

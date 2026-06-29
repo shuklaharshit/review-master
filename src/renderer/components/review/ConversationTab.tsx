@@ -101,7 +101,7 @@ export function ConversationTab({ prRef }: { prRef: PullRequestRef }): JSX.Eleme
               <ExistingThreadView
                 thread={item.thread}
                 replyBusy={reply.isPending}
-                onReply={(body) => reply.mutate({ ref: prRef, inReplyToId: item.thread.id, body })}
+                onReply={(body) => reply.mutateAsync({ ref: prRef, inReplyToId: item.thread.id, body })}
               />
             </div>
           )

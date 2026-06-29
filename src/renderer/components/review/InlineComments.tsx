@@ -17,6 +17,7 @@ export function CommentComposer({
   submitLabel,
   busy,
   autoFocus,
+  error,
   onSubmit,
   onCancel
 }: {
@@ -25,6 +26,8 @@ export function CommentComposer({
   submitLabel: string
   busy?: boolean
   autoFocus?: boolean
+  /** Inline error shown above the actions (e.g. a failed network submit). */
+  error?: string | null
   onSubmit: (body: string) => void
   onCancel?: () => void
 }): JSX.Element {
@@ -45,6 +48,7 @@ export function CommentComposer({
         }}
         className="min-h-[60px] w-full resize-y bg-transparent text-[12.5px] leading-relaxed text-text-primary placeholder:text-text-muted focus:outline-none"
       />
+      {error && <p className="mt-1 px-0.5 text-[11px] text-danger">{error}</p>}
       <div className="mt-1.5 flex items-center justify-end gap-2">
         {onCancel && (
           <Button variant="ghost" size="sm" onClick={onCancel}>
@@ -85,9 +89,11 @@ export function ExistingThreadView({
 }: {
   thread: ReviewCommentThread
   replyBusy?: boolean
-  onReply?: (body: string) => void
+  /** Posts a reply. Must reject (or throw) on failure so the draft is kept. */
+  onReply?: (body: string) => Promise<unknown> | void
 }): JSX.Element {
   const [replying, setReplying] = useState(false)
+  const [replyError, setReplyError] = useState<string | null>(null)
   return (
     <div className="space-y-3 rounded-md border border-border-subtle bg-background-elevated p-2.5">
       {thread.comments.map((c) => (
@@ -100,11 +106,22 @@ export function ExistingThreadView({
             submitLabel="Reply"
             busy={replyBusy}
             autoFocus
-            onSubmit={(body) => {
-              onReply(body)
+            error={replyError}
+            // Await the post before closing — on failure keep the composer open
+            // (and its typed text) and show the error rather than dropping it.
+            onSubmit={async (body) => {
+              setReplyError(null)
+              try {
+                await onReply(body)
+                setReplying(false)
+              } catch (e) {
+                setReplyError(e instanceof Error ? e.message : 'Failed to post reply.')
+              }
+            }}
+            onCancel={() => {
+              setReplyError(null)
               setReplying(false)
             }}
-            onCancel={() => setReplying(false)}
           />
         ) : (
           <button

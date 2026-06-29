@@ -48,6 +48,12 @@ export interface ListPullsOptions {
 const MAX_FILE_PAGES = 3
 const FILE_PER_PAGE = 100
 
+// Conversation endpoints (reviews, issue comments, inline review comments) are a
+// primary review surface, so we follow pages — but still bound the work for a
+// pathologically long-lived PR. 10 × 100 = up to 1,000 entries per endpoint.
+const CONVERSATION_PER_PAGE = 100
+const MAX_CONVERSATION_PAGES = 10
+
 // Caps for installation-scoped repo enumeration (ADR-0007).
 const MAX_INSTALLATION_PAGES = 5
 const INSTALLATIONS_PER_PAGE = 100
@@ -374,18 +380,43 @@ export class GitHubApiClient {
   // Reviews, labels, assignees, requested reviewers
   // -------------------------------------------------------------------------
 
+  /**
+   * Follows pages of a conversation endpoint up to MAX_CONVERSATION_PAGES,
+   * logging if the dataset is truncated at the cap. The whole loop runs inside a
+   * single `call()` so the 401-refresh/rate-limit handling still applies.
+   */
+  private async paginateConversation<T>(
+    accountId: string,
+    label: string,
+    fetchPage: (octokit: Octokit, page: number) => Promise<T[]>
+  ): Promise<T[]> {
+    return this.call(accountId, async (octokit) => {
+      const out: T[] = []
+      for (let page = 1; page <= MAX_CONVERSATION_PAGES; page++) {
+        const batch = await fetchPage(octokit, page)
+        out.push(...batch)
+        if (batch.length < CONVERSATION_PER_PAGE) break
+        if (page === MAX_CONVERSATION_PAGES) {
+          this.log.warn('conversation list truncated at cap', { accountId, label })
+        }
+      }
+      return out
+    })
+  }
+
   async listReviews(
     accountId: string,
     owner: string,
     repo: string,
     number: number
   ): Promise<GhReview[]> {
-    return this.call(accountId, async (octokit) => {
+    return this.paginateConversation(accountId, 'reviews', async (octokit, page) => {
       const res = await octokit.rest.pulls.listReviews({
         owner,
         repo,
         pull_number: number,
-        per_page: 100
+        per_page: CONVERSATION_PER_PAGE,
+        page
       })
       return res.data as unknown as GhReview[]
     })
@@ -415,12 +446,13 @@ export class GitHubApiClient {
     repo: string,
     number: number
   ): Promise<GhIssueComment[]> {
-    return this.call(accountId, async (octokit) => {
+    return this.paginateConversation(accountId, 'issue-comments', async (octokit, page) => {
       const res = await octokit.rest.issues.listComments({
         owner,
         repo,
         issue_number: number,
-        per_page: 100
+        per_page: CONVERSATION_PER_PAGE,
+        page
       })
       return res.data as unknown as GhIssueComment[]
     })
@@ -433,12 +465,13 @@ export class GitHubApiClient {
     repo: string,
     number: number
   ): Promise<GhReviewComment[]> {
-    return this.call(accountId, async (octokit) => {
+    return this.paginateConversation(accountId, 'review-comments', async (octokit, page) => {
       const res = await octokit.rest.pulls.listReviewComments({
         owner,
         repo,
         pull_number: number,
-        per_page: 100
+        per_page: CONVERSATION_PER_PAGE,
+        page
       })
       return res.data as unknown as GhReviewComment[]
     })

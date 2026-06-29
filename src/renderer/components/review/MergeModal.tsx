@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { MergeMethod, PullRequestRef } from '@shared/types'
 import { Dialog, DialogContent } from '../ui/Dialog'
 import { Button } from '../ui/Button'
@@ -30,6 +30,16 @@ export function MergeModal({
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Mounted unconditionally — reset local state on open / PR change so stale
+  // merge metadata or an old error never carries into a different PR.
+  useEffect(() => {
+    if (!open) return
+    setMethod('squash')
+    setTitle('')
+    setMessage('')
+    setError(null)
+  }, [open, prRef.accountId, prRef.repoId, prRef.number])
 
   const merge = useMergePr(prRef)
   const pushToast = useAppStore((s) => s.pushToast)
