@@ -1,4 +1,3 @@
-import './loadEnv' // must be first: populates process.env from .env before constants are read
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { initLogger, logger } from './app/Logger'

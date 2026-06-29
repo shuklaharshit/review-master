@@ -12,7 +12,7 @@ npm install -g @openai/codex && codex login
 yarn dev
 ```
 
-No GitHub config needed: the app's public GitHub App identity (client id + slug) is baked into `src/shared/constants.ts` — neither is a secret (device flow, no client secret/private key). To target your **own** GitHub App instead, set `REVIEW_MASTER_GITHUB_CLIENT_ID` / `REVIEW_MASTER_GITHUB_APP_SLUG` in a local `.env` (git-ignored, loaded by `src/main/loadEnv.ts`); they override the baked-in defaults.
+No GitHub config needed: the app's public GitHub App identity (client id + slug) is hardcoded in `src/shared/constants.ts` — neither is a secret (device flow, no client secret/private key). To target your **own** GitHub App instead, change the `GITHUB_CLIENT_ID` / `GITHUB_APP_SLUG` constants there.
 
 ## Before every commit
 

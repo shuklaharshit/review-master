@@ -45,23 +45,19 @@ export const GENERATED_FILE_PATTERNS: RegExp[] = [
 // GitHub App — PUBLIC identity for the device-flow login (ADR-0007). NEITHER
 // value is a secret: the device flow uses a public client id with NO client
 // secret and NO private key, and the slug is just the public install URL
-// (github.com/apps/<slug>). We bake in the canonical "Review Master" App so a
-// clone works out of the box and everyone shares one installation. A fork can
-// still point at its own App by setting REVIEW_MASTER_GITHUB_CLIENT_ID /
-// REVIEW_MASTER_GITHUB_APP_SLUG (loaded from a local .env in dev, see loadEnv.ts).
-// The `typeof process` guard keeps this module safe to import in the renderer,
-// which has no `process` global.
+// (github.com/apps/<slug>). They're the canonical "Review Master" App, hardcoded
+// so a clone works out of the box and everyone shares one installation. Forking?
+// Just change these two lines to your own App's client id + slug.
 // NOTE: GitHub Apps use fine-grained *permissions*, not OAuth *scopes* — the
 // device-code request intentionally sends no `scope`. Repo access is governed by
 // where the App is installed + repo selection.
-const env = typeof process !== 'undefined' && process.env ? process.env : undefined
-export const GITHUB_CLIENT_ID = env?.REVIEW_MASTER_GITHUB_CLIENT_ID || 'Iv23liIQq5nPYKr4BIqW'
+export const GITHUB_CLIENT_ID = 'Iv23liIQq5nPYKr4BIqW'
 
 // GitHub App slug — the `<slug>` in https://github.com/apps/<slug>. Used to send
 // the user to GitHub to install the App / choose which repositories it can see.
-export const GITHUB_APP_SLUG = env?.REVIEW_MASTER_GITHUB_APP_SLUG || 'review-master-ai'
+export const GITHUB_APP_SLUG = 'review-master-ai'
 
-/** True when a GitHub App identity is set (always true with the baked-in default). */
+/** True when a GitHub App identity is set (always true with the hardcoded values). */
 export function isGitHubAppConfigured(): boolean {
   return GITHUB_CLIENT_ID.length > 0 && GITHUB_APP_SLUG.length > 0
 }

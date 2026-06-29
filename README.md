@@ -110,7 +110,7 @@ To package installers locally: `yarn build && yarn electron-builder`.
 
 The App's identity is public by design — the device flow uses a public client id with **no client secret and no private key** (see [ADR-0007](./docs/github-app-migration.md)) — so it's baked into `src/shared/constants.ts`. Tokens obtained through the flow are stored in your **OS keychain**, never in SQLite, logs, or the renderer.
 
-> **Forking?** To point the device flow at your own GitHub App instead, set `REVIEW_MASTER_GITHUB_CLIENT_ID` and `REVIEW_MASTER_GITHUB_APP_SLUG` (in a local `.env` for dev, or the real environment) — they override the baked-in defaults.
+> **Forking?** To point the device flow at your own GitHub App instead, change the `GITHUB_CLIENT_ID` and `GITHUB_APP_SLUG` constants in `src/shared/constants.ts` to your App's values.
 
 ## Architecture
 
