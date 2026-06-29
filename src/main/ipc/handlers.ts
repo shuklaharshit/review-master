@@ -7,9 +7,13 @@ import {
   AppSettingsPatchSchema,
   CancelFlowSchema,
   CancelTaskSchema,
+  CreateCommentParamsSchema,
+  FinishReviewParamsSchema,
   GenerateReviewParamsSchema,
   GetFileContentParamsSchema,
   HasInstallationsSchema,
+  MergePullRequestParamsSchema,
+  ReplyReviewCommentParamsSchema,
   ListPullRequestsParamsSchema,
   ListRepositoriesParamsSchema,
   OpenExternalSchema,
@@ -148,6 +152,12 @@ export function registerIpcHandlers(services: Services): void {
   on(IPC.prs.get, PullRequestRefSchema, (params) => github.getPullRequest(params))
   on(IPC.prs.openWorkspace, PullRequestRefSchema, (params) => prContext.openWorkspace(params))
   on(IPC.prs.getFileContent, GetFileContentParamsSchema, (params) => github.getFileContent(params))
+  on(IPC.prs.getConversation, PullRequestRefSchema, (params) => github.getPullRequestConversation(params))
+  on(IPC.prs.createComment, CreateCommentParamsSchema, (params) => github.createComment(params))
+  on(IPC.prs.replyReviewComment, ReplyReviewCommentParamsSchema, (params) =>
+    github.replyToReviewComment(params)
+  )
+  on(IPC.prs.merge, MergePullRequestParamsSchema, (params) => github.mergePullRequest(params))
 
   // ---- review ----
   on(IPC.review.runPreflight, RunPreflightParamsSchema, (params) => preflight.run(params))
@@ -155,6 +165,7 @@ export function registerIpcHandlers(services: Services): void {
   on(IPC.review.getDraft, PullRequestRefSchema, (params) => aiReview.getDraft(params))
   on(IPC.review.saveDraft, SaveDraftParamsSchema, (params) => aiReview.saveDraft(params))
   on(IPC.review.submitDraft, SubmitDraftParamsSchema, (params) => submission.submit(params))
+  on(IPC.review.finishReview, FinishReviewParamsSchema, (params) => submission.finishReview(params))
   on(IPC.review.cancelTask, CancelTaskSchema, async ({ taskId }) => {
     tasks.cancel(taskId)
     await codex.interrupt(taskId)

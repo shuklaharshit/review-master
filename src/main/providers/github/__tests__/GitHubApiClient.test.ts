@@ -5,11 +5,14 @@ import type { AccountService } from '../../../auth/AccountService'
 // Mock Octokit so every `new Octokit()` exposes the installation endpoints we
 // drive from the test. Hoisted so the vi.mock factory can close over them
 // (vitest hoists vi.mock above the imports, so the static import is mocked).
-const { mockListInstallations, mockListRepos, mockGetContent } = vi.hoisted(() => ({
-  mockListInstallations: vi.fn(),
-  mockListRepos: vi.fn(),
-  mockGetContent: vi.fn()
-}))
+const { mockListInstallations, mockListRepos, mockGetContent, mockListReviewComments } = vi.hoisted(
+  () => ({
+    mockListInstallations: vi.fn(),
+    mockListRepos: vi.fn(),
+    mockGetContent: vi.fn(),
+    mockListReviewComments: vi.fn()
+  })
+)
 
 vi.mock('@octokit/rest', () => ({
   Octokit: vi.fn(() => ({
@@ -20,6 +23,9 @@ vi.mock('@octokit/rest', () => ({
       },
       repos: {
         getContent: mockGetContent
+      },
+      pulls: {
+        listReviewComments: mockListReviewComments
       }
     }
   }))
@@ -145,5 +151,46 @@ describe('GitHubApiClient — getFileContent', () => {
     await expect(
       makeClient().getFileContent('acct1', 'acme', 'repo', 'src', 'sha')
     ).rejects.toMatchObject({ code: 'not_found' })
+  })
+})
+
+describe('GitHubApiClient — conversation pagination', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function commentsPage(n: number, startId: number) {
+    return {
+      data: Array.from({ length: n }, (_, i) => ({ id: startId + i, path: 'a.ts', body: 'x' }))
+    }
+  }
+
+  it('follows pages until a short page and concatenates all review comments', async () => {
+    mockListReviewComments
+      .mockResolvedValueOnce(commentsPage(100, 1)) // full page → keep going
+      .mockResolvedValueOnce(commentsPage(2, 101)) // short page → stop
+
+    const out = await makeClient().listReviewComments('acct1', 'acme', 'repo', 7)
+
+    expect(out).toHaveLength(102)
+    expect(mockListReviewComments).toHaveBeenCalledTimes(2)
+    expect(mockListReviewComments).toHaveBeenNthCalledWith(1, expect.objectContaining({ page: 1, per_page: 100 }))
+    expect(mockListReviewComments).toHaveBeenNthCalledWith(2, expect.objectContaining({ page: 2 }))
+  })
+
+  it('makes a single request when the first page is already short', async () => {
+    mockListReviewComments.mockResolvedValueOnce(commentsPage(3, 1))
+
+    const out = await makeClient().listReviewComments('acct1', 'acme', 'repo', 7)
+
+    expect(out).toHaveLength(3)
+    expect(mockListReviewComments).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops at the page cap (10) even if pages keep coming back full', async () => {
+    mockListReviewComments.mockResolvedValue(commentsPage(100, 1))
+
+    const out = await makeClient().listReviewComments('acct1', 'acme', 'repo', 7)
+
+    expect(mockListReviewComments).toHaveBeenCalledTimes(10)
+    expect(out).toHaveLength(1000)
   })
 })

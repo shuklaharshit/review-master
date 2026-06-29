@@ -81,6 +81,7 @@ interface Fakes {
   getIssueLabels: ReturnType<typeof vi.fn>
   createReview: ReturnType<typeof vi.fn>
   hasInstallations: ReturnType<typeof vi.fn>
+  mergePull: ReturnType<typeof vi.fn>
 }
 
 function buildFakes(): Fakes {
@@ -103,6 +104,7 @@ function buildFakes(): Fakes {
   const getIssueLabels = vi.fn<() => Promise<GhLabel[]>>().mockResolvedValue([])
   const createReview = vi.fn<() => Promise<GhCreatedReview>>()
   const hasInstallations = vi.fn<() => Promise<boolean>>()
+  const mergePull = vi.fn<() => Promise<{ merged: boolean; sha?: string; message?: string }>>()
 
   const api = {
     listPulls,
@@ -114,7 +116,8 @@ function buildFakes(): Fakes {
     listReviews,
     getIssueLabels,
     createReview,
-    hasInstallations
+    hasInstallations,
+    mergePull
   } as unknown as GitHubApiClient
 
   const deps: GitHubProviderDeps = {
@@ -139,7 +142,8 @@ function buildFakes(): Fakes {
     listReviews,
     getIssueLabels,
     createReview,
-    hasInstallations
+    hasInstallations,
+    mergePull
   }
 }
 
@@ -299,7 +303,7 @@ describe('GitHubProvider.fetchReviewContext', () => {
     const runs: GhCheckRun[] = [{ name: 'ci', status: 'completed', conclusion: 'success' }]
     const statuses: GhCommitStatus[] = [{ context: 'legacy', state: 'success' }]
     const reviews: GhReview[] = [
-      { user: { login: 'rev' }, state: 'APPROVED', submitted_at: '2026-01-02T00:00:00Z' }
+      { id: 1, user: { login: 'rev' }, state: 'APPROVED', submitted_at: '2026-01-02T00:00:00Z' }
     ]
     const labels: GhLabel[] = [{ name: 'bug', color: 'red' }]
     const assignees: GhUser[] = [{ login: 'alice' }]
@@ -458,5 +462,39 @@ describe('GitHubProvider.hasInstallations', () => {
 
     f.hasInstallations.mockResolvedValue(false)
     expect(await provider.hasInstallations(ACCOUNT)).toBe(false)
+  })
+})
+
+describe('GitHubProvider.mergePullRequest', () => {
+  let f: Fakes
+  let provider: GitHubProvider
+
+  beforeEach(() => {
+    f = buildFakes()
+    provider = new GitHubProvider(f.deps)
+  })
+
+  it('forwards the chosen method + commit fields and returns the result', async () => {
+    f.mergePull.mockResolvedValue({ merged: true, sha: 'merge-sha', message: 'Merged' })
+    const res = await provider.mergePullRequest({
+      ref: ref(42),
+      method: 'squash',
+      commitTitle: 'Title',
+      commitMessage: 'Body'
+    })
+    expect(res).toEqual({ merged: true, sha: 'merge-sha', message: 'Merged' })
+    expect(f.mergePull).toHaveBeenCalledWith(ACCOUNT, OWNER, REPO, 42, {
+      merge_method: 'squash',
+      commit_title: 'Title',
+      commit_message: 'Body'
+    })
+  })
+
+  it('maps a github_api_error (not mergeable / conflict) to a recoverable merge_failed', async () => {
+    f.mergePull.mockRejectedValue(appError('github_api_error', 'Pull Request is not mergeable'))
+    await expect(provider.mergePullRequest({ ref: ref(42), method: 'merge' })).rejects.toMatchObject({
+      code: 'merge_failed',
+      recoverable: true
+    } satisfies Partial<AppError>)
   })
 })

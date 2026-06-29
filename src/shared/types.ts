@@ -207,15 +207,82 @@ export interface CheckSummary {
 }
 
 export interface ReviewSummary {
+  /** GitHub review id (absent for synthetic/pending entries). */
+  id?: string
   login: string
   avatarUrl?: string
   state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | 'DISMISSED'
   submittedAt?: string
+  /** Review-level body (the summary comment), when the reviewer left one. */
+  body?: string
+  htmlUrl?: string
 }
 
 export interface LabelSummary {
   name: string
   color?: string
+}
+
+// ----------------------------------------------------------------------------
+// Conversation (discussion timeline) — issue comments, review bodies, and
+// inline review-comment threads, fetched live for the Discussion tab.
+// ----------------------------------------------------------------------------
+
+/** A top-level PR comment (the "conversation" tab on GitHub). */
+export interface IssueComment {
+  id: string
+  author?: UserSummary
+  body: string
+  createdAt?: string
+  updatedAt?: string
+  htmlUrl?: string
+}
+
+/** Which side of the diff an inline comment is anchored to. */
+export type DiffSide = 'LEFT' | 'RIGHT'
+
+/** A single inline code-review comment (on a diff line). */
+export interface ReviewComment {
+  id: string
+  author?: UserSummary
+  body: string
+  path: string
+  /** The line in the file the comment is anchored to (head side unless LEFT). */
+  line?: number
+  side?: DiffSide
+  /** Start line for a multi-line comment range. */
+  startLine?: number
+  /** The diff hunk GitHub captured at comment time (for standalone display). */
+  diffHunk?: string
+  /** Root comment id for replies; absent on the thread's first comment. */
+  inReplyToId?: string
+  createdAt?: string
+  htmlUrl?: string
+}
+
+/** A resolved-or-open thread of inline comments anchored to one location. */
+export interface ReviewCommentThread {
+  /** Id of the root comment that opened the thread. */
+  id: string
+  path: string
+  line?: number
+  side?: DiffSide
+  diffHunk?: string
+  comments: ReviewComment[]
+}
+
+/** Aggregated discussion for a PR (built by the provider, ordered in the UI). */
+export interface PrConversation {
+  issueComments: IssueComment[]
+  reviews: ReviewSummary[]
+  threads: ReviewCommentThread[]
+}
+
+/** Result of posting an issue comment or inline reply. */
+export interface PostedComment {
+  id: string
+  htmlUrl?: string
+  createdAt?: string
 }
 
 export interface ReviewContext {
@@ -558,10 +625,72 @@ export interface SaveDraftParams {
   markdown: string
 }
 
+/**
+ * A pending inline comment authored in the app before the review is submitted
+ * (GitHub's "start a review" model). It is anchored to a diff line and batched
+ * into the review submission as a single GitHub `comments[]` entry.
+ */
+export interface DraftInlineComment {
+  /** Stable local id (renderer-minted) so the list can edit/remove entries. */
+  localId: string
+  path: string
+  /** Line number in the file (head side for RIGHT, base side for LEFT). */
+  line: number
+  side: DiffSide
+  /** Start of a multi-line range (optional). */
+  startLine?: number
+  startSide?: DiffSide
+  body: string
+  /** The diff line's text, kept only for rendering the pending list. */
+  lineContent?: string
+}
+
 export interface SubmitDraftParams {
   draftId: string
   ref: PullRequestRef
   event?: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
+  /** Pending inline comments to attach to the review (pending-review model). */
+  comments?: DraftInlineComment[]
+}
+
+/**
+ * Submit a PR review without an AI draft — a review made of a free-form summary
+ * and/or pending inline comments. Used by the "Finish review" flow so the user
+ * can review entirely by hand from the workspace.
+ */
+export interface FinishReviewParams {
+  ref: PullRequestRef
+  body?: string
+  event?: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
+  comments?: DraftInlineComment[]
+}
+
+export type MergeMethod = 'merge' | 'squash' | 'rebase'
+
+export interface MergePullRequestParams {
+  ref: PullRequestRef
+  method: MergeMethod
+  /** Optional commit title/message (merge + squash only; ignored for rebase). */
+  commitTitle?: string
+  commitMessage?: string
+}
+
+export interface MergeResult {
+  merged: boolean
+  sha?: string
+  message?: string
+}
+
+export interface CreateCommentParams {
+  ref: PullRequestRef
+  body: string
+}
+
+export interface ReplyReviewCommentParams {
+  ref: PullRequestRef
+  /** The root (or any) comment id of the thread to reply to. */
+  inReplyToId: string
+  body: string
 }
 
 // ----------------------------------------------------------------------------

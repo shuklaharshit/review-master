@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { queryKeys } from './keys'
 import type {
   GenerateReviewParams,
+  MergePullRequestParams,
   PullRequestRef,
   RunPreflightParams,
   WorkspaceState
@@ -35,4 +36,15 @@ export function useGenerateReview() {
 export function useInvalidateWorkspace() {
   const qc = useQueryClient()
   return (ref: PullRequestRef) => qc.invalidateQueries({ queryKey: queryKeys.workspace(ref) })
+}
+
+/** Merge the PR, then refresh the workspace so the new (merged) state shows. */
+export function useMergePr(ref: PullRequestRef | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: MergePullRequestParams) => api.prs.merge(params),
+    onSuccess: () => {
+      if (ref) void qc.invalidateQueries({ queryKey: queryKeys.workspace(ref) })
+    }
+  })
 }

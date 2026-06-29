@@ -3,34 +3,42 @@ import { useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSanitize from 'rehype-sanitize'
-import type { PullRequestRef, ReviewDraft } from '@shared/types'
+import type { PullRequestRef, PullRequestState, ReviewDraft } from '@shared/types'
 import { Dialog, DialogContent } from '../ui/Dialog'
 import { Button } from '../ui/Button'
-import { CopyIcon, CheckIcon, XIcon, AlertTriangleIcon } from '../ui/icons'
+import { CopyIcon, CheckIcon, XIcon, AlertTriangleIcon, MessageIcon } from '../ui/icons'
 import { useSaveDraft, useSubmitDraft } from '../../queries/useDraft'
 import { useTaskStore } from '../../stores/taskStore'
 import { useAppStore } from '../../stores/appStore'
+import { usePendingReviewStore } from '../../stores/pendingReviewStore'
+import { useIsOwnPr } from '../../lib/selfPr'
 import { queryKeys } from '../../queries/keys'
 import { formatTime } from '@shared/dates'
 import { DRAFT_AUTOSAVE_INTERVAL_MS } from '@shared/constants'
+import { ReviewEventSelector, type ReviewEvent } from './ReviewEventSelector'
 
 export function ReviewDraftModal({
   open,
   onOpenChange,
   draft,
   prRef,
-  taskId
+  taskId,
+  authorLogin,
+  prState
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   draft: ReviewDraft
   prRef: PullRequestRef
   taskId?: string
+  authorLogin?: string
+  prState?: PullRequestState
 }): JSX.Element {
   const [markdown, setMarkdown] = useState(draft.markdown)
   const [lastSaved, setLastSaved] = useState<string | null>(draft.updatedAt ?? null)
   const [copied, setCopied] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [event, setEvent] = useState<ReviewEvent>('COMMENT')
 
   const task = useTaskStore((s) => (taskId ? s.tasks[taskId] : undefined))
   const streaming = task?.status === 'running'
@@ -38,6 +46,18 @@ export function ReviewDraftModal({
   const qc = useQueryClient()
   const saveDraft = useSaveDraft()
   const submitDraft = useSubmitDraft()
+
+  const pendingComments = usePendingReviewStore((s) => s.comments)
+  const clearPending = usePendingReviewStore((s) => s.clear)
+  const isOwnPr = useIsOwnPr(prRef, authorLogin)
+  const prClosed = prState === 'closed' || prState === 'merged'
+  const disabledReason = isOwnPr
+    ? "You can't approve or request changes on your own pull request."
+    : prClosed
+      ? `This pull request is ${prState}.`
+      : undefined
+  // If approve/request-changes is disabled, force the event back to COMMENT.
+  const effectiveEvent: ReviewEvent = disabledReason && event !== 'COMMENT' ? 'COMMENT' : event
 
   const dirtyRef = useRef(false)
   const lastSyncedTask = useRef<string>('')
@@ -92,10 +112,17 @@ export function ReviewDraftModal({
       dirtyRef.current = false
     }
     try {
-      await submitDraft.mutateAsync({ draftId: draft.id, ref: prRef, event: 'COMMENT' })
+      await submitDraft.mutateAsync({
+        draftId: draft.id,
+        ref: prRef,
+        event: effectiveEvent,
+        comments: pendingComments.length > 0 ? pendingComments : undefined
+      })
+      clearPending()
       pushToast('success', 'Review submitted successfully.')
       void qc.invalidateQueries({ queryKey: queryKeys.workspace(prRef) })
       void qc.invalidateQueries({ queryKey: queryKeys.draft(prRef) })
+      void qc.invalidateQueries({ queryKey: queryKeys.conversation(prRef) })
       onOpenChange(false)
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to submit review.')
@@ -149,35 +176,47 @@ export function ReviewDraftModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border-subtle px-5 py-3">
-          <div className="flex items-center gap-2 text-[11px] text-text-muted">
-            {submitError ? (
-              <span className="flex items-center gap-1.5 text-danger">
-                <AlertTriangleIcon className="h-3.5 w-3.5" /> {submitError}
-              </span>
-            ) : (
-              <span>
-                Saved locally{lastSaved ? ` • Last edited ${formatTime(lastSaved)}` : ''}
+        <div className="flex flex-col gap-2.5 border-t border-border-subtle px-5 py-3">
+          <div className="flex items-center gap-3">
+            <ReviewEventSelector value={effectiveEvent} onChange={setEvent} disabledReason={disabledReason} />
+            {pendingComments.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-text-muted">
+                <MessageIcon className="h-3.5 w-3.5 text-accent-hover" />
+                {pendingComments.length} inline comment{pendingComments.length === 1 ? '' : 's'} attached
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={copyMarkdown}>
-              {copied ? <CheckIcon className="h-3.5 w-3.5 text-success" /> : <CopyIcon className="h-3.5 w-3.5" />}
-              Copy Markdown
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              loading={submitDraft.isPending}
-              disabled={streaming || !markdown.trim()}
-              onClick={() => void submit()}
-            >
-              {submitError ? 'Retry submit' : 'Submit Review'}
-            </Button>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[11px] text-text-muted">
+              {submitError ? (
+                <span className="flex items-center gap-1.5 text-danger">
+                  <AlertTriangleIcon className="h-3.5 w-3.5" /> {submitError}
+                </span>
+              ) : (
+                <span>Saved locally{lastSaved ? ` • Last edited ${formatTime(lastSaved)}` : ''}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={copyMarkdown}>
+                {copied ? <CheckIcon className="h-3.5 w-3.5 text-success" /> : <CopyIcon className="h-3.5 w-3.5" />}
+                Copy Markdown
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                loading={submitDraft.isPending}
+                disabled={
+                  streaming ||
+                  (effectiveEvent !== 'APPROVE' && !markdown.trim() && pendingComments.length === 0)
+                }
+                onClick={() => void submit()}
+              >
+                {submitError ? 'Retry submit' : 'Submit Review'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

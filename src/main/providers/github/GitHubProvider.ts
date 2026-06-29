@@ -2,16 +2,22 @@ import type {
   AuthFlowStartResult,
   CheckSummary,
   CommitSummary,
+  CreateCommentParams,
   FileContent,
   GetFileContentParams,
   LabelSummary,
   ListPullRequestsParams,
   ListRepositoriesParams,
+  MergePullRequestParams,
+  MergeResult,
   PaginatedResult,
+  PostedComment,
+  PrConversation,
   PullRequest,
   PullRequestDetail,
   PullRequestFile,
   PullRequestRef,
+  ReplyReviewCommentParams,
   Repository,
   ReviewContext,
   ReviewSummary,
@@ -26,19 +32,22 @@ import type { SecureTokenStore } from '../../contracts'
 import type { Database } from '../../db/types'
 import type { AccountService } from '../../auth/AccountService'
 import type { GitProvider, SubmitReviewParams } from '../GitProvider'
-import { GitHubApiClient, type ListPullsOptions } from './GitHubApiClient'
+import { GitHubApiClient, type CreateReviewComment, type ListPullsOptions } from './GitHubApiClient'
 import { GitHubAuthService } from './GitHubAuthService'
 import type { GhRepo } from './GitHubTypes'
 import {
+  buildReviewThreads,
   mapCheckRun,
   mapCommit,
   mapCommitStatus,
   mapFile,
+  mapIssueComment,
   mapLabel,
   mapPullRequest,
   mapPullRequestDetail,
   mapRepository,
   mapReview,
+  mapReviewComment,
   mapUsers
 } from './GitHubMapper'
 
@@ -280,6 +289,28 @@ export class GitHubProvider implements GitProvider {
   }
 
   // -------------------------------------------------------------------------
+  // Conversation (discussion timeline)
+  // -------------------------------------------------------------------------
+
+  async getPullRequestConversation(params: PullRequestRef): Promise<PrConversation> {
+    const [issueRaw, reviewsRaw, reviewCommentsRaw] = await Promise.all([
+      this.api.listIssueComments(params.accountId, params.owner, params.repo, params.number),
+      this.api.listReviews(params.accountId, params.owner, params.repo, params.number),
+      this.api.listReviewComments(params.accountId, params.owner, params.repo, params.number)
+    ])
+
+    const issueComments = issueRaw.map(mapIssueComment)
+    // Drop empty PENDING reviews (no body, no state of interest) — they're the
+    // reviewer's own in-progress draft and add only noise to the timeline.
+    const reviews = reviewsRaw
+      .map(mapReview)
+      .filter((r) => r.state !== 'PENDING')
+    const threads = buildReviewThreads(reviewCommentsRaw.map(mapReviewComment))
+
+    return { issueComments, reviews, threads }
+  }
+
+  // -------------------------------------------------------------------------
   // Aggregated review context
   // -------------------------------------------------------------------------
 
@@ -326,11 +357,26 @@ export class GitHubProvider implements GitProvider {
 
   async submitPullRequestReview(params: SubmitReviewParams): Promise<SubmittedReview> {
     const { ref } = params
+    const comments: CreateReviewComment[] | undefined = params.comments?.length
+      ? params.comments.map((c) => ({
+          path: c.path,
+          body: c.body,
+          line: c.line,
+          side: c.side,
+          start_line: c.startLine,
+          start_side: c.startSide
+        }))
+      : undefined
+    // Anchor inline comments to the current head so line numbers resolve against
+    // the right commit; review-level-only submissions don't need a commit id.
+    const commitId =
+      params.commitId ?? (comments ? await this.resolveHeadSha(ref).catch(() => undefined) : undefined)
     try {
       const created = await this.api.createReview(ref.accountId, ref.owner, ref.repo, ref.number, {
         event: params.event,
         body: params.body,
-        commitId: params.commitId
+        commitId,
+        comments
       })
       return {
         githubReviewId: String(created.id),
@@ -340,6 +386,65 @@ export class GitHubProvider implements GitProvider {
     } catch (error) {
       throw this.mapSubmitError(error)
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Standalone comments (conversation replies)
+  // -------------------------------------------------------------------------
+
+  async createComment(params: CreateCommentParams): Promise<PostedComment> {
+    const { ref } = params
+    const created = await this.api.createIssueComment(
+      ref.accountId,
+      ref.owner,
+      ref.repo,
+      ref.number,
+      params.body
+    )
+    return { id: String(created.id), htmlUrl: created.html_url, createdAt: created.created_at ?? undefined }
+  }
+
+  async replyToReviewComment(params: ReplyReviewCommentParams): Promise<PostedComment> {
+    const { ref } = params
+    const created = await this.api.replyReviewComment(
+      ref.accountId,
+      ref.owner,
+      ref.repo,
+      ref.number,
+      Number(params.inReplyToId),
+      params.body
+    )
+    return { id: String(created.id), htmlUrl: created.html_url, createdAt: created.created_at ?? undefined }
+  }
+
+  // -------------------------------------------------------------------------
+  // Merge
+  // -------------------------------------------------------------------------
+
+  async mergePullRequest(params: MergePullRequestParams): Promise<MergeResult> {
+    const { ref } = params
+    try {
+      return await this.api.mergePull(ref.accountId, ref.owner, ref.repo, ref.number, {
+        merge_method: params.method,
+        commit_title: params.commitTitle,
+        commit_message: params.commitMessage
+      })
+    } catch (error) {
+      throw this.mapMergeError(error)
+    }
+  }
+
+  private mapMergeError(error: unknown): unknown {
+    const e = error as { code?: string; details?: { status?: number }; message?: string }
+    // 405 → not mergeable (checks/branch protection); 409 → conflict or the head
+    // moved since the page loaded. GitHubApiClient surfaces both as github_api_error.
+    if (e?.code === 'github_api_error') {
+      return appError('merge_failed', e.message || 'GitHub could not merge this pull request.', true, e?.details)
+    }
+    if (e?.code === 'not_found') {
+      return appError('pr_closed', 'The pull request could not be found or is closed.', false)
+    }
+    return error
   }
 
   // -------------------------------------------------------------------------

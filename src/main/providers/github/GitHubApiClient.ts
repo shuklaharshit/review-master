@@ -7,14 +7,27 @@ import type {
   GhCheckRun,
   GhCommit,
   GhCommitStatus,
+  GhCreatedComment,
   GhCreatedReview,
   GhFile,
+  GhIssueComment,
   GhLabel,
   GhPullRequest,
   GhRepo,
   GhReview,
+  GhReviewComment,
   GhUser
 } from './GitHubTypes'
+
+/** A single inline comment passed to createReview (GitHub line-based API). */
+export interface CreateReviewComment {
+  path: string
+  body: string
+  line: number
+  side?: 'LEFT' | 'RIGHT'
+  start_line?: number
+  start_side?: 'LEFT' | 'RIGHT'
+}
 
 /** A narrow view of the Octokit/HTTP error we care about. */
 interface OctokitError {
@@ -34,6 +47,12 @@ export interface ListPullsOptions {
 // Caps so a giant PR can't run unbounded pagination.
 const MAX_FILE_PAGES = 3
 const FILE_PER_PAGE = 100
+
+// Conversation endpoints (reviews, issue comments, inline review comments) are a
+// primary review surface, so we follow pages — but still bound the work for a
+// pathologically long-lived PR. 10 × 100 = up to 1,000 entries per endpoint.
+const CONVERSATION_PER_PAGE = 100
+const MAX_CONVERSATION_PAGES = 10
 
 // Caps for installation-scoped repo enumeration (ADR-0007).
 const MAX_INSTALLATION_PAGES = 5
@@ -361,18 +380,43 @@ export class GitHubApiClient {
   // Reviews, labels, assignees, requested reviewers
   // -------------------------------------------------------------------------
 
+  /**
+   * Follows pages of a conversation endpoint up to MAX_CONVERSATION_PAGES,
+   * logging if the dataset is truncated at the cap. The whole loop runs inside a
+   * single `call()` so the 401-refresh/rate-limit handling still applies.
+   */
+  private async paginateConversation<T>(
+    accountId: string,
+    label: string,
+    fetchPage: (octokit: Octokit, page: number) => Promise<T[]>
+  ): Promise<T[]> {
+    return this.call(accountId, async (octokit) => {
+      const out: T[] = []
+      for (let page = 1; page <= MAX_CONVERSATION_PAGES; page++) {
+        const batch = await fetchPage(octokit, page)
+        out.push(...batch)
+        if (batch.length < CONVERSATION_PER_PAGE) break
+        if (page === MAX_CONVERSATION_PAGES) {
+          this.log.warn('conversation list truncated at cap', { accountId, label })
+        }
+      }
+      return out
+    })
+  }
+
   async listReviews(
     accountId: string,
     owner: string,
     repo: string,
     number: number
   ): Promise<GhReview[]> {
-    return this.call(accountId, async (octokit) => {
+    return this.paginateConversation(accountId, 'reviews', async (octokit, page) => {
       const res = await octokit.rest.pulls.listReviews({
         owner,
         repo,
         pull_number: number,
-        per_page: 100
+        per_page: CONVERSATION_PER_PAGE,
+        page
       })
       return res.data as unknown as GhReview[]
     })
@@ -392,6 +436,44 @@ export class GitHubApiClient {
         per_page: 100
       })
       return res.data as unknown as GhLabel[]
+    })
+  }
+
+  /** Top-level PR comments (the conversation tab). */
+  async listIssueComments(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<GhIssueComment[]> {
+    return this.paginateConversation(accountId, 'issue-comments', async (octokit, page) => {
+      const res = await octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: number,
+        per_page: CONVERSATION_PER_PAGE,
+        page
+      })
+      return res.data as unknown as GhIssueComment[]
+    })
+  }
+
+  /** Inline review comments (anchored to diff lines). */
+  async listReviewComments(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number
+  ): Promise<GhReviewComment[]> {
+    return this.paginateConversation(accountId, 'review-comments', async (octokit, page) => {
+      const res = await octokit.rest.pulls.listReviewComments({
+        owner,
+        repo,
+        pull_number: number,
+        per_page: CONVERSATION_PER_PAGE,
+        page
+      })
+      return res.data as unknown as GhReviewComment[]
     })
   }
 
@@ -421,7 +503,12 @@ export class GitHubApiClient {
     owner: string,
     repo: string,
     number: number,
-    params: { event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'; body: string; commitId?: string }
+    params: {
+      event: 'COMMENT' | 'REQUEST_CHANGES' | 'APPROVE'
+      body: string
+      commitId?: string
+      comments?: CreateReviewComment[]
+    }
   ): Promise<GhCreatedReview> {
     return this.call(accountId, async (octokit) => {
       const res = await octokit.rest.pulls.createReview({
@@ -430,9 +517,73 @@ export class GitHubApiClient {
         pull_number: number,
         event: params.event,
         body: params.body,
-        commit_id: params.commitId
+        commit_id: params.commitId,
+        // Line-based inline comments; cast keeps us off Octokit's legacy
+        // position-based comment shape.
+        comments: params.comments as unknown as undefined
       })
       return res.data as unknown as GhCreatedReview
+    })
+  }
+
+  /** Merges a PR with the given method. Throws normalized AppErrors on 405/409. */
+  async mergePull(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number,
+    params: { merge_method: 'merge' | 'squash' | 'rebase'; commit_title?: string; commit_message?: string }
+  ): Promise<{ merged: boolean; sha?: string; message?: string }> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.pulls.merge({
+        owner,
+        repo,
+        pull_number: number,
+        merge_method: params.merge_method,
+        commit_title: params.commit_title,
+        commit_message: params.commit_message
+      })
+      return { merged: res.data.merged, sha: res.data.sha, message: res.data.message }
+    })
+  }
+
+  /** Posts a top-level PR comment. */
+  async createIssueComment(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number,
+    body: string
+  ): Promise<GhCreatedComment> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: number,
+        body
+      })
+      return res.data as unknown as GhCreatedComment
+    })
+  }
+
+  /** Replies to an existing inline review-comment thread. */
+  async replyReviewComment(
+    accountId: string,
+    owner: string,
+    repo: string,
+    number: number,
+    commentId: number,
+    body: string
+  ): Promise<GhCreatedComment> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.pulls.createReplyForReviewComment({
+        owner,
+        repo,
+        pull_number: number,
+        comment_id: commentId,
+        body
+      })
+      return res.data as unknown as GhCreatedComment
     })
   }
 }

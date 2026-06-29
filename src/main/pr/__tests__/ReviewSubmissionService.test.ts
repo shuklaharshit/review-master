@@ -171,6 +171,28 @@ describe('ReviewSubmissionService.submit', () => {
     )
   })
 
+  it('forwards pending inline comments to the provider (line-based)', async () => {
+    fakes.submitReview.mockResolvedValue({ githubReviewId: 'r1', submittedAt: 'now' })
+    await service.submit(
+      submitParams({
+        comments: [{ localId: 'pc1', path: 'src/a.ts', line: 12, side: 'RIGHT', body: 'nit' }]
+      })
+    )
+    const call = fakes.submitReview.mock.calls[0][0]
+    expect(call.comments).toHaveLength(1)
+    expect(call.comments[0]).toMatchObject({ path: 'src/a.ts', line: 12, side: 'RIGHT', body: 'nit' })
+  })
+
+  it('submits a comments-only draft even when the body is empty', async () => {
+    fakes = buildFakes(makeDraft({ markdown: '' }))
+    service = new ReviewSubmissionService({ db: fakes.db, provider: fakes.provider })
+    fakes.submitReview.mockResolvedValue({ githubReviewId: 'r1', submittedAt: 'now' })
+    await service.submit(
+      submitParams({ comments: [{ localId: 'pc1', path: 'a.ts', line: 1, side: 'RIGHT', body: 'x' }] })
+    )
+    expect(fakes.submitReview).toHaveBeenCalledTimes(1)
+  })
+
   it('throws empty_draft and does NOT call the provider for an empty draft', async () => {
     fakes = buildFakes(makeDraft({ markdown: '   ' }))
     service = new ReviewSubmissionService({ db: fakes.db, provider: fakes.provider })
@@ -213,6 +235,52 @@ describe('ReviewSubmissionService.submit', () => {
     })
     await expect(service.submit(submitParams())).resolves.toBeDefined()
     expect(fakes.submitReview).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ReviewSubmissionService.finishReview', () => {
+  function build() {
+    const submitReview = vi.fn().mockResolvedValue({ githubReviewId: 'r9', submittedAt: 'now' })
+    const getPullRequest = vi.fn().mockResolvedValue(openPr)
+    const setStatus = vi.fn()
+    const getByNumber = vi.fn().mockReturnValue({ id: 'pr1' })
+    const latestForPr = vi.fn().mockReturnValue(snapshot)
+    const db = {
+      pullRequests: { getByNumber },
+      snapshots: { latestForPr },
+      reviewStatuses: { setStatus }
+    } as unknown as Database
+    const provider = {
+      getPullRequest,
+      submitPullRequestReview: submitReview
+    } as unknown as GitProvider
+    const service = new ReviewSubmissionService({ db, provider })
+    return { service, submitReview, setStatus }
+  }
+
+  it('submits a hand-authored body and marks the latest snapshot reviewed', async () => {
+    const { service, submitReview, setStatus } = build()
+    const res = await service.finishReview({ ref, body: 'LGTM', event: 'APPROVE' })
+    expect(res.githubReviewId).toBe('r9')
+    const call = submitReview.mock.calls[0][0]
+    expect(call.event).toBe('APPROVE')
+    expect(call.body).toContain('LGTM')
+    expect(setStatus).toHaveBeenCalledWith('pr1', 'snap1', 'reviewed', 'head')
+  })
+
+  it('submits an inline-comment-only review with no body', async () => {
+    const { service, submitReview } = build()
+    await service.finishReview({
+      ref,
+      comments: [{ localId: 'pc1', path: 'a.ts', line: 3, side: 'RIGHT', body: 'nit' }]
+    })
+    expect(submitReview.mock.calls[0][0].comments).toHaveLength(1)
+  })
+
+  it('rejects an empty review (no body, no comments)', async () => {
+    const { service, submitReview } = build()
+    await expect(service.finishReview({ ref })).rejects.toMatchObject({ code: 'empty_draft' })
+    expect(submitReview).not.toHaveBeenCalled()
   })
 })
 

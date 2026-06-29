@@ -27,7 +27,11 @@ export const IPC = {
     list: 'prs:list',
     get: 'prs:get',
     openWorkspace: 'prs:openWorkspace',
-    getFileContent: 'prs:getFileContent'
+    getFileContent: 'prs:getFileContent',
+    getConversation: 'prs:getConversation',
+    createComment: 'prs:createComment',
+    replyReviewComment: 'prs:replyReviewComment',
+    merge: 'prs:merge'
   },
   review: {
     runPreflight: 'review:runPreflight',
@@ -35,6 +39,7 @@ export const IPC = {
     getDraft: 'review:getDraft',
     saveDraft: 'review:saveDraft',
     submitDraft: 'review:submitDraft',
+    finishReview: 'review:finishReview',
     cancelTask: 'review:cancelTask',
     markReviewed: 'review:markReviewed'
   },
