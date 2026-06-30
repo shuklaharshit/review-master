@@ -7,6 +7,10 @@ on:
 
 jobs:
   release:
+    # The default GITHUB_TOKEN is read-only; publishing a GitHub Release needs
+    # write access to repo contents (electron-builder POSTs to /releases).
+    permissions:
+      contents: write
     strategy:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
