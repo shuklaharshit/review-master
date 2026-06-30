@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
 import { initLogger, logger } from './app/Logger'
+import { hydrateShellPath } from './app/shellPath'
 import { buildServices, type Services } from './Services'
 import { registerIpcHandlers } from './ipc/handlers'
 
@@ -71,9 +72,14 @@ if (!app.requestSingleInstanceLock()) {
     }
   })
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     initLogger()
     logger.info('Review Master starting', { version: app.getVersion() })
+
+    // When launched from Finder/Dock, macOS/Linux give us a minimal PATH that
+    // hides nvm/asdf/Homebrew bins — so `codex` and its `node` go undetected.
+    // Hydrate from the login shell before any codex detection/spawn happens.
+    if (app.isPackaged) await hydrateShellPath()
 
     // macOS shows the Dock icon from the app bundle; in dev there is none, so
     // set it explicitly. No-op on other platforms (handled via window icon).
