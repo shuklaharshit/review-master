@@ -8,15 +8,21 @@ files:
   - package.json
 asarUnpack:
   - "**/*.node"
+# Version-less artifact names so the README's `releases/latest/download/<name>`
+# buttons keep working across every release (the asset name never changes).
+# Mac ships Apple Silicon (arm64) only — see README "Download".
 mac:
   category: public.app-category.developer-tools
+  artifactName: Review-Master-mac-${arch}.${ext}
   target:
     - dmg
     - zip
 win:
+  artifactName: Review-Master-windows-${arch}.${ext}
   target:
     - nsis
 linux:
+  artifactName: Review-Master-linux-${arch}.${ext}
   target:
     - AppImage
   category: Development

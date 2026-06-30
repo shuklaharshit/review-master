@@ -28,6 +28,30 @@ Review Master is a desktop app that turns a chaotic PR diff into a guided review
   <p><em>▶ <a href="https://github.com/user-attachments/assets/3f3881c0-6262-40d1-93ec-60d3071e239d">Watch the full walkthrough — preflight to submitted review (48s)</a></em></p>
 </div>
 
+## Download
+
+Grab the latest release — these buttons always point at the newest published build:
+
+<div align="center">
+
+[![Download for macOS](https://img.shields.io/badge/Download_for_macOS-Apple_Silicon-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/shuklaharshit/review-master/releases/latest/download/Review-Master-mac-arm64.dmg)
+&nbsp;
+[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/shuklaharshit/review-master/releases/latest/download/Review-Master-windows-x64.exe)
+&nbsp;
+[![Download for Linux](https://img.shields.io/badge/Download_for_Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/shuklaharshit/review-master/releases/latest/download/Review-Master-linux-x64.AppImage)
+
+<sub>or browse every asset on the [releases page](https://github.com/shuklaharshit/review-master/releases/latest)</sub>
+
+</div>
+
+> **macOS is Apple Silicon (M-series) only** for now — Intel Macs aren't built (see [#issues](https://github.com/shuklaharshit/review-master/issues) if you need one). **Windows** is the `x64` NSIS installer; **Linux** is a portable `AppImage` (`chmod +x` it and run).
+>
+> The builds are **unsigned** (no paid signing certs yet), so the OS will warn on first launch:
+> - **macOS:** right-click the app → **Open** (or `xattr -dr com.apple.quarantine "/Applications/Review Master.app"`).
+> - **Windows:** SmartScreen → **More info → Run anyway**.
+>
+> Once installed, the app updates itself from future releases.
+
 ## Why Review Master
 
 Most AI reviewers are a paid SaaS bot that you bolt onto your repo and that ships your code to a vendor's cloud. Review Master is the opposite:
