@@ -47,9 +47,9 @@ Grab the latest release — these buttons always point at the newest published b
 > **macOS is Apple Silicon (M-series) only** for now — Intel Macs aren't built (see [#issues](https://github.com/shuklaharshit/review-master/issues) if you need one). **Windows** is the `x64` NSIS installer; **Linux** is a portable `AppImage` (`chmod +x` it and run).
 >
 > The builds are **unsigned** (no paid signing certs yet), so the OS blocks them on first launch:
-> - **macOS:** you'll see *"Review Master is damaged and can't be opened"* — this is Gatekeeper rejecting an unsigned app, **not** a real corruption. Clear the download quarantine flag, then open it:
+> - **macOS:** after dragging the app into your Applications folder you'll see *"Review Master is damaged and can't be opened"* — this is Gatekeeper rejecting an unsigned app, **not** a real corruption. Clear the download quarantine flag, then open it:
 >   ```bash
->   xattr -dr com.apple.quarantine ~/Downloads/Review\ Master.app   # or wherever you put it
+>   xattr -dr com.apple.quarantine /Applications/Review\ Master.app
 >   ```
 > - **Windows:** SmartScreen → **More info → Run anyway**.
 >
