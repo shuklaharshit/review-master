@@ -15,9 +15,8 @@ import { CheckIcon, ChevronDownIcon, PlusIcon } from '../ui/icons'
 export function AccountDropdown() {
   const { data: accounts } = useAccounts()
   const activeAccountId = useAppStore((s) => s.activeAccountId)
-  const setActiveAccountId = useAppStore((s) => s.setActiveAccountId)
   const setRoute = useAppStore((s) => s.setRoute)
-  const selectRepo = useAppStore((s) => s.selectRepo)
+  const switchAccount = useAppStore((s) => s.switchAccount)
   const setActive = useSetActiveAccount()
 
   const active = accounts?.find((a) => a.id === activeAccountId) ?? accounts?.[0]
@@ -45,10 +44,8 @@ export function AccountDropdown() {
           <DropdownMenuItem
             key={acc.id}
             onSelect={() => {
-              setActiveAccountId(acc.id)
+              switchAccount(acc.id)
               setActive.mutate(acc.id)
-              selectRepo(null)
-              setRoute('repos')
             }}
           >
             <Avatar src={acc.avatarUrl} alt={acc.login} size={18} />

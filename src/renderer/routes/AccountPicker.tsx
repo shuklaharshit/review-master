@@ -8,15 +8,13 @@ import { ChevronRightIcon, GitHubIcon, PlusIcon } from '../components/ui/icons'
 
 export function AccountPicker() {
   const { data: accounts, isLoading } = useAccounts()
-  const setActiveAccountId = useAppStore((s) => s.setActiveAccountId)
-  const selectRepo = useAppStore((s) => s.selectRepo)
+  const switchAccount = useAppStore((s) => s.switchAccount)
   const setActive = useSetActiveAccount()
   const [addOpen, setAddOpen] = useState(false)
 
   function pick(accountId: string) {
-    setActiveAccountId(accountId)
+    switchAccount(accountId) // one history entry: lands on 'repos' for this account
     setActive.mutate(accountId)
-    selectRepo(null) // routes to 'repos'
   }
 
   return (

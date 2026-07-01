@@ -10,16 +10,18 @@ import { Settings } from './routes/Settings'
 import { ForceUpdateScreen } from './components/layout/ForceUpdateScreen'
 import { useAppEvents } from './queries/useAppEvents'
 import { useBootstrap } from './queries/useBootstrap'
+import { useNavigationShortcuts } from './hooks/useNavigationShortcuts'
 import { useAppStore } from './stores/appStore'
 import { queryKeys } from './queries/keys'
 import { api } from './lib/api'
 
 export function App(): JSX.Element {
   useAppEvents()
+  useNavigationShortcuts()
 
   const qc = useQueryClient()
   const route = useAppStore((s) => s.route)
-  const setRoute = useAppStore((s) => s.setRoute)
+  const navigate = useAppStore((s) => s.navigate)
   const setBootstrap = useAppStore((s) => s.setBootstrap)
   const setActiveAccountId = useAppStore((s) => s.setActiveAccountId)
   const activeAccountId = useAppStore((s) => s.activeAccountId)
@@ -43,8 +45,10 @@ export function App(): JSX.Element {
 
     const ready = bootstrap.ready
     const hasAccounts = bootstrap.hasAccounts
-    setRoute(!ready || !hasAccounts ? 'onboarding' : 'accounts')
-  }, [bootstrap, setBootstrap, setRoute, setActiveAccountId])
+    // Seed the history stack with the entry screen (replace, not push) so there
+    // is nothing to go "back" into before the app's real starting point.
+    navigate({ route: !ready || !hasAccounts ? 'onboarding' : 'accounts' }, { replace: true })
+  }, [bootstrap, setBootstrap, navigate, setActiveAccountId])
 
   // Refresh accounts list when one is added in the background.
   useEffect(() => {
