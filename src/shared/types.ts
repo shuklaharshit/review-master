@@ -693,6 +693,15 @@ export interface ReplyReviewCommentParams {
   body: string
 }
 
+export interface EditCommentParams {
+  ref: PullRequestRef
+  /** The comment's REST id. */
+  commentId: string
+  /** Which endpoint backs it: a conversation comment vs an inline review comment. */
+  kind: 'issue' | 'review'
+  body: string
+}
+
 // ----------------------------------------------------------------------------
 // Settings
 // ----------------------------------------------------------------------------

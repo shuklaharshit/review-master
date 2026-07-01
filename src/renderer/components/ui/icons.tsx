@@ -140,6 +140,34 @@ export function CopyIcon(props: IconProps) {
   )
 }
 
+export function MoreHorizontalIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function LinkIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
 export function SpinnerIcon(props: IconProps) {
   return (
     <svg {...base(props)} className={`rm-spin ${props.className ?? ''}`}>

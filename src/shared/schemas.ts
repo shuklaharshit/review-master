@@ -220,6 +220,13 @@ export const ReplyReviewCommentParamsSchema = z.object({
   body: z.string().min(1).max(65536)
 })
 
+export const EditCommentParamsSchema = z.object({
+  ref: PullRequestRefSchema,
+  commentId: z.string().min(1),
+  kind: z.enum(['issue', 'review']),
+  body: z.string().min(1).max(65536)
+})
+
 export const AppSettingsPatchSchema = z
   .object({
     defaultPreflightModel: z.string(),

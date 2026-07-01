@@ -18,6 +18,7 @@ import type {
   PullRequestFile,
   PullRequestRef,
   ReplyReviewCommentParams,
+  EditCommentParams,
   Repository,
   ReviewContext,
   ReviewSummary,
@@ -415,6 +416,16 @@ export class GitHubProvider implements GitProvider {
       params.body
     )
     return { id: String(created.id), htmlUrl: created.html_url, createdAt: created.created_at ?? undefined }
+  }
+
+  async editComment(params: EditCommentParams): Promise<PostedComment> {
+    const { ref } = params
+    const id = Number(params.commentId)
+    const updated =
+      params.kind === 'issue'
+        ? await this.api.updateIssueComment(ref.accountId, ref.owner, ref.repo, id, params.body)
+        : await this.api.updateReviewComment(ref.accountId, ref.owner, ref.repo, id, params.body)
+    return { id: String(updated.id), htmlUrl: updated.html_url, createdAt: updated.created_at ?? undefined }
   }
 
   // -------------------------------------------------------------------------

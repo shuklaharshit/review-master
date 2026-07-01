@@ -118,7 +118,9 @@ export function PrDiffPanel({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="files" className="min-h-0 flex-1 overflow-auto px-5 py-4">
+        {/* Bottom padding (pb-24) so an inline comment composer opened on the
+            last diff lines can scroll clear of the floating action buttons. */}
+        <TabsContent value="files" className="min-h-0 flex-1 overflow-auto px-5 pt-4 pb-24">
           {activeGroup && (
             <div className="mb-3 flex items-center gap-2">
               <span className="flex h-5 w-5 items-center justify-center rounded-md bg-accent text-[11px] font-semibold text-accent-foreground">
@@ -154,7 +156,9 @@ export function PrDiffPanel({
           <CommitsTab commits={context.commits} />
         </TabsContent>
 
-        <TabsContent value="discussion" className="min-h-0 flex-1 overflow-auto px-5 py-4">
+        {/* Extra bottom padding so the comment composer can scroll clear of the
+            floating "Generate AI Review" / "Finish review" action buttons. */}
+        <TabsContent value="discussion" className="min-h-0 flex-1 overflow-auto px-5 pt-4 pb-24">
           <ConversationTab prRef={prRef} />
         </TabsContent>
       </Tabs>

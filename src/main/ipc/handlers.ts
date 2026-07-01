@@ -8,6 +8,7 @@ import {
   CancelFlowSchema,
   CancelTaskSchema,
   CreateCommentParamsSchema,
+  EditCommentParamsSchema,
   FinishReviewParamsSchema,
   GenerateReviewParamsSchema,
   GetFileContentParamsSchema,
@@ -157,6 +158,7 @@ export function registerIpcHandlers(services: Services): void {
   on(IPC.prs.replyReviewComment, ReplyReviewCommentParamsSchema, (params) =>
     github.replyToReviewComment(params)
   )
+  on(IPC.prs.editComment, EditCommentParamsSchema, (params) => github.editComment(params))
   on(IPC.prs.merge, MergePullRequestParamsSchema, (params) => github.mergePullRequest(params))
 
   // ---- review ----

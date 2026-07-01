@@ -31,6 +31,7 @@ export const IPC = {
     getConversation: 'prs:getConversation',
     createComment: 'prs:createComment',
     replyReviewComment: 'prs:replyReviewComment',
+    editComment: 'prs:editComment',
     merge: 'prs:merge'
   },
   review: {

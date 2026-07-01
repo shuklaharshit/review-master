@@ -20,6 +20,7 @@ import type {
   PullRequestFile,
   PullRequestRef,
   ReplyReviewCommentParams,
+  EditCommentParams,
   Repository,
   ReviewContext,
   ReviewSummary,
@@ -85,6 +86,8 @@ export interface GitProvider {
   createComment(params: CreateCommentParams): Promise<PostedComment>
   /** Replies to an existing inline review-comment thread. */
   replyToReviewComment(params: ReplyReviewCommentParams): Promise<PostedComment>
+  /** Edits an existing conversation or inline review comment. */
+  editComment(params: EditCommentParams): Promise<PostedComment>
 
   /** Merges the pull request with the chosen method. */
   mergePullRequest(params: MergePullRequestParams): Promise<MergeResult>

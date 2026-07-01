@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DraftInlineComment, ReviewComment, ReviewCommentThread } from '@shared/types'
 import { Button } from '../ui/Button'
 import { Avatar } from '../ui/misc'
@@ -6,6 +6,7 @@ import { MessageIcon } from '../ui/icons'
 import { relativeTime } from '@shared/dates'
 import { usePendingReviewStore } from '../../stores/pendingReviewStore'
 import { CommentMarkdown } from './CommentMarkdown'
+import { CommentActionsMenu, quoteMarkdown } from './CommentActionsMenu'
 
 // ---------------------------------------------------------------------------
 // Composer — a controlled textarea with submit/cancel, reused for new pending
@@ -33,11 +34,30 @@ export function CommentComposer({
 }): JSX.Element {
   const [value, setValue] = useState(initialValue)
   const trimmed = value.trim()
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  // When auto-focused (e.g. opened via "Quote reply"), place the cursor after
+  // any seeded text and scroll the composer into view within its scroll
+  // container. Deferred a frame so it runs after the dropdown menu finishes
+  // closing (Radix otherwise restores focus to its trigger, stealing it back).
+  useEffect(() => {
+    if (!autoFocus) return
+    const raf = requestAnimationFrame(() => {
+      const el = ref.current
+      if (!el) return
+      el.focus()
+      const end = el.value.length
+      el.setSelectionRange(end, end)
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [autoFocus])
+
   return (
     <div className="rounded-md border border-border-strong bg-background-panel p-2">
       <textarea
+        ref={ref}
         value={value}
-        autoFocus={autoFocus}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
         rows={3}
@@ -66,15 +86,64 @@ export function CommentComposer({
 // ---------------------------------------------------------------------------
 // A single posted comment (existing thread entry).
 // ---------------------------------------------------------------------------
-function PostedComment({ comment }: { comment: ReviewComment }): JSX.Element {
+function PostedComment({
+  comment,
+  canEdit,
+  onQuoteReply,
+  onSaveEdit
+}: {
+  comment: ReviewComment
+  canEdit?: boolean
+  onQuoteReply?: () => void
+  onSaveEdit?: (body: string) => Promise<unknown>
+}): JSX.Element {
+  const [editing, setEditing] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  // Only show the menu when it would carry at least one action.
+  const showMenu = !!comment.htmlUrl || !!onQuoteReply || (canEdit && !!onSaveEdit)
+
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
         <Avatar src={comment.author?.avatarUrl} alt={comment.author?.login ?? '?'} size={16} />
         <span className="font-medium text-text-secondary">{comment.author?.login ?? 'unknown'}</span>
         {comment.createdAt && <span>· {relativeTime(comment.createdAt)}</span>}
+        {showMenu && (
+          <div className="ml-auto">
+            <CommentActionsMenu
+              htmlUrl={comment.htmlUrl}
+              body={comment.body}
+              onQuoteReply={onQuoteReply}
+              onEdit={canEdit && onSaveEdit ? () => setEditing(true) : undefined}
+            />
+          </div>
+        )}
       </div>
-      <CommentMarkdown>{comment.body}</CommentMarkdown>
+      {editing && onSaveEdit ? (
+        <CommentComposer
+          initialValue={comment.body}
+          placeholder="Edit comment…"
+          submitLabel="Update comment"
+          autoFocus
+          error={editError}
+          onSubmit={async (body) => {
+            setEditError(null)
+            try {
+              await onSaveEdit(body)
+              setEditing(false)
+            } catch (e) {
+              setEditError(e instanceof Error ? e.message : 'Failed to update comment.')
+            }
+          }}
+          onCancel={() => {
+            setEditError(null)
+            setEditing(false)
+          }}
+        />
+      ) : (
+        <CommentMarkdown>{comment.body}</CommentMarkdown>
+      )}
     </div>
   )
 }
@@ -85,23 +154,47 @@ function PostedComment({ comment }: { comment: ReviewComment }): JSX.Element {
 export function ExistingThreadView({
   thread,
   replyBusy,
-  onReply
+  onReply,
+  currentLogin,
+  onEditComment
 }: {
   thread: ReviewCommentThread
   replyBusy?: boolean
   /** Posts a reply. Must reject (or throw) on failure so the draft is kept. */
   onReply?: (body: string) => Promise<unknown> | void
+  /** Login of the signed-in user, to decide which comments show "Edit". */
+  currentLogin?: string
+  /** Edits an inline comment in this thread. Must reject on failure. */
+  onEditComment?: (commentId: string, body: string) => Promise<unknown>
 }): JSX.Element {
   const [replying, setReplying] = useState(false)
   const [replyError, setReplyError] = useState<string | null>(null)
+  // Seed + nonce let "Quote reply" prefill the reply composer (remount on change).
+  const [replySeed, setReplySeed] = useState('')
+  const [replyNonce, setReplyNonce] = useState(0)
+
+  function openReply(initial = ''): void {
+    setReplySeed(initial)
+    setReplyNonce((n) => n + 1)
+    setReplying(true)
+  }
+
   return (
     <div className="space-y-3 rounded-md border border-border-subtle bg-background-elevated p-2.5">
       {thread.comments.map((c) => (
-        <PostedComment key={c.id} comment={c} />
+        <PostedComment
+          key={c.id}
+          comment={c}
+          canEdit={!!currentLogin && c.author?.login === currentLogin}
+          onQuoteReply={onReply ? () => openReply(quoteMarkdown(c.body)) : undefined}
+          onSaveEdit={onEditComment ? (body) => onEditComment(c.id, body) : undefined}
+        />
       ))}
       {onReply &&
         (replying ? (
           <CommentComposer
+            key={replyNonce}
+            initialValue={replySeed}
             placeholder="Reply…"
             submitLabel="Reply"
             busy={replyBusy}
@@ -114,6 +207,7 @@ export function ExistingThreadView({
               try {
                 await onReply(body)
                 setReplying(false)
+                setReplySeed('')
               } catch (e) {
                 setReplyError(e instanceof Error ? e.message : 'Failed to post reply.')
               }
@@ -121,12 +215,13 @@ export function ExistingThreadView({
             onCancel={() => {
               setReplyError(null)
               setReplying(false)
+              setReplySeed('')
             }}
           />
         ) : (
           <button
             type="button"
-            onClick={() => setReplying(true)}
+            onClick={() => openReply()}
             className="text-[11px] font-medium text-text-muted hover:text-text-primary"
           >
             Reply

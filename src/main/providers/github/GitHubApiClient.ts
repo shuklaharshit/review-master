@@ -586,4 +586,32 @@ export class GitHubApiClient {
       return res.data as unknown as GhCreatedComment
     })
   }
+
+  /** Edits a top-level PR (issue) comment. */
+  async updateIssueComment(
+    accountId: string,
+    owner: string,
+    repo: string,
+    commentId: number,
+    body: string
+  ): Promise<GhCreatedComment> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.issues.updateComment({ owner, repo, comment_id: commentId, body })
+      return res.data as unknown as GhCreatedComment
+    })
+  }
+
+  /** Edits an inline review comment. */
+  async updateReviewComment(
+    accountId: string,
+    owner: string,
+    repo: string,
+    commentId: number,
+    body: string
+  ): Promise<GhCreatedComment> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.pulls.updateReviewComment({ owner, repo, comment_id: commentId, body })
+      return res.data as unknown as GhCreatedComment
+    })
+  }
 }

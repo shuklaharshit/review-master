@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import { queryKeys } from './keys'
 import type {
   CreateCommentParams,
+  EditCommentParams,
   PrConversation,
   PullRequestRef,
   ReplyReviewCommentParams
@@ -33,6 +34,16 @@ export function useReplyReviewComment(ref: PullRequestRef | null) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (params: ReplyReviewCommentParams) => api.prs.replyReviewComment(params),
+    onSuccess: () => {
+      if (ref) void qc.invalidateQueries({ queryKey: queryKeys.conversation(ref) })
+    }
+  })
+}
+
+export function useEditComment(ref: PullRequestRef | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: EditCommentParams) => api.prs.editComment(params),
     onSuccess: () => {
       if (ref) void qc.invalidateQueries({ queryKey: queryKeys.conversation(ref) })
     }
