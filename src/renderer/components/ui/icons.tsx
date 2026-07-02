@@ -25,6 +25,16 @@ export function SearchIcon(props: IconProps) {
   )
 }
 
+export function LayersIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m12 2 9 5-9 5-9-5 9-5" />
+      <path d="m3 12 9 5 9-5" />
+      <path d="m3 17 9 5 9-5" />
+    </svg>
+  )
+}
+
 export function ChevronRightIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

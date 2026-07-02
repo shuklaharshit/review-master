@@ -5,8 +5,9 @@
 // renderer (rather than @testing-library/react) because these tests were
 // authored against it; jest-dom matchers (toBeInTheDocument, toHaveTextContent,
 // …) are registered — with proper Vitest types — via the `/vitest` entry.
-import { act, type ReactElement } from 'react'
+import { act, createElement, type ReactElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { TooltipProvider } from '../../ui/Tooltip'
 import '@testing-library/jest-dom/vitest'
 
 // Silence React 18 act() environment warnings.
@@ -19,19 +20,25 @@ export interface RenderResult {
   unmount: () => void
 }
 
+// Mirror main.tsx: the app renders inside a TooltipProvider, so components
+// using Tooltip need one in tests too.
+function wrap(element: ReactElement): ReactElement {
+  return createElement(TooltipProvider, null, element)
+}
+
 export function render(element: ReactElement): RenderResult {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
   act(() => {
-    root.render(element)
+    root.render(wrap(element))
   })
   return {
     container,
     root,
     rerender(el: ReactElement) {
       act(() => {
-        root.render(el)
+        root.render(wrap(el))
       })
     },
     unmount() {

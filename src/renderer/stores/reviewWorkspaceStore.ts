@@ -1,11 +1,14 @@
 import { create } from 'zustand'
 import type { ReviewGroup, WorkspaceState } from '@shared/types'
 
+export type LeftPanelTab = 'segments' | 'files'
+
 export interface ReviewWorkspaceUiState {
   selectedGroupOrder: number | null
   selectedFilePath: string | null
   viewedFiles: Record<string, boolean>
   expandedExplanations: Record<number, boolean>
+  leftPanelTab: LeftPanelTab
   rightPanelTab: 'info'
   showOnlyUnviewed: boolean
 }
@@ -24,6 +27,7 @@ interface ReviewWorkspaceStore extends ReviewWorkspaceUiState {
   toggleViewed: (path: string) => void
   setViewed: (path: string, viewed: boolean) => void
   toggleExplanation: (order: number) => void
+  setLeftPanelTab: (tab: LeftPanelTab) => void
   setShowOnlyUnviewed: (value: boolean) => void
 }
 
@@ -32,6 +36,7 @@ const initialUi: ReviewWorkspaceUiState = {
   selectedFilePath: null,
   viewedFiles: {},
   expandedExplanations: {},
+  leftPanelTab: 'segments',
   rightPanelTab: 'info',
   showOnlyUnviewed: false
 }
@@ -70,6 +75,8 @@ export const useReviewWorkspaceStore = create<ReviewWorkspaceStore>((set, get) =
 
   toggleExplanation: (order) =>
     set((s) => ({ expandedExplanations: { ...s.expandedExplanations, [order]: !s.expandedExplanations[order] } })),
+
+  setLeftPanelTab: (tab) => set({ leftPanelTab: tab }),
 
   setShowOnlyUnviewed: (value) => set({ showOnlyUnviewed: value })
 }))

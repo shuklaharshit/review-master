@@ -20,7 +20,7 @@ export function ReviewMapPanel({
   const groups = [...analysis.reviewGroups].sort((a, b) => a.order - b.order)
 
   return (
-    <aside className="flex w-[300px] shrink-0 flex-col border-r border-border-subtle bg-background">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2.5">
         <span className="font-display text-[12px] font-semibold uppercase tracking-wide text-text-muted">AI Review Map</span>
         <span className="text-[11px] text-text-muted">{groups.length} groups</span>
@@ -46,6 +46,6 @@ export function ReviewMapPanel({
           />
         ))}
       </div>
-    </aside>
+    </div>
   )
 }

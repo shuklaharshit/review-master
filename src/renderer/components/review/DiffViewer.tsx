@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import type { NormalizedDiffFile, PullRequestRef, ReviewCommentThread } from '@shared/types'
 import { cn } from '../ui/cn'
+import { Tooltip } from '../ui/Tooltip'
 import { CopyIcon, CheckIcon, EyeIcon, FileIcon, MessageIcon } from '../ui/icons'
 import { enrichWithWordDiff, type RenderableDiffLine } from '../../lib/diffWords'
 import { DiffRows, HunkHeaderRow } from './DiffRows'
@@ -163,13 +164,19 @@ export function DiffViewer({
         </span>
         <div className="min-w-0 flex-1">
           {file.oldPath && file.oldPath !== file.path ? (
-            <span className="mono truncate text-[12px] text-text-secondary" title={`${file.oldPath} → ${file.path}`}>
-              <span className="text-text-muted line-through">{file.oldPath}</span> → {file.path}
-            </span>
+            <Tooltip
+              content={`${file.oldPath} → ${file.path}`}
+              side="bottom"
+              className="mono max-w-[600px] break-all text-[11.5px]"
+            >
+              <span className="mono block truncate text-[12px] text-text-secondary">
+                <span className="text-text-muted line-through">{file.oldPath}</span> → {file.path}
+              </span>
+            </Tooltip>
           ) : (
-            <span className="mono truncate text-[12px] text-text-primary" title={file.path}>
-              {file.path}
-            </span>
+            <Tooltip content={file.path} side="bottom" className="mono max-w-[600px] break-all text-[11.5px]">
+              <span className="mono block truncate text-[12px] text-text-primary">{file.path}</span>
+            </Tooltip>
           )}
         </div>
         {(fileThreadCount > 0 || filePendingCount > 0) && (

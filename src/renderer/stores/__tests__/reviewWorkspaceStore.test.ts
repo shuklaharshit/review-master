@@ -50,6 +50,7 @@ function resetStore(): void {
     selectedFilePath: null,
     viewedFiles: {},
     expandedExplanations: {},
+    leftPanelTab: 'segments',
     rightPanelTab: 'info',
     showOnlyUnviewed: false,
     workspace: null,
@@ -150,5 +151,18 @@ describe('reviewWorkspaceStore', () => {
   it('setShowOnlyUnviewed sets the filter flag', () => {
     useReviewWorkspaceStore.getState().setShowOnlyUnviewed(true)
     expect(useReviewWorkspaceStore.getState().showOnlyUnviewed).toBe(true)
+  })
+
+  it('setLeftPanelTab switches between segments and files', () => {
+    expect(useReviewWorkspaceStore.getState().leftPanelTab).toBe('segments')
+    useReviewWorkspaceStore.getState().setLeftPanelTab('files')
+    expect(useReviewWorkspaceStore.getState().leftPanelTab).toBe('files')
+  })
+
+  it('resetUi resets the left panel tab to segments', () => {
+    const store = useReviewWorkspaceStore.getState()
+    store.setLeftPanelTab('files')
+    store.resetUi('snap-3')
+    expect(useReviewWorkspaceStore.getState().leftPanelTab).toBe('segments')
   })
 })

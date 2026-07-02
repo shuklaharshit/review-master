@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ReviewMapPanel } from '../components/review/ReviewMapPanel'
+import { ChangedFilesPanel } from '../components/review/ChangedFilesPanel'
 import { PrDiffPanel } from '../components/review/PrDiffPanel'
 import { PrIntelligencePanel } from '../components/review/PrIntelligencePanel'
 import { PreflightConfirmModal } from '../components/review/PreflightConfirmModal'
@@ -12,7 +13,8 @@ import { MergeModal } from '../components/review/MergeModal'
 import { Button } from '../components/ui/Button'
 import { Tooltip } from '../components/ui/Tooltip'
 import { Spinner } from '../components/ui/misc'
-import { AlertTriangleIcon, ZapIcon, RefreshIcon, MessageIcon } from '../components/ui/icons'
+import { AlertTriangleIcon, ZapIcon, RefreshIcon, MessageIcon, LayersIcon, SearchIcon } from '../components/ui/icons'
+import { cn } from '../components/ui/cn'
 import { useAppStore } from '../stores/appStore'
 import { useReviewWorkspaceStore } from '../stores/reviewWorkspaceStore'
 import { usePendingReviewStore } from '../stores/pendingReviewStore'
@@ -36,6 +38,8 @@ export function ReviewWorkspace(): JSX.Element {
   const setWorkspace = useReviewWorkspaceStore((s) => s.setWorkspace)
   const resetUi = useReviewWorkspaceStore((s) => s.resetUi)
   const storedSnapshotId = useReviewWorkspaceStore((s) => s.snapshotId)
+  const leftPanelTab = useReviewWorkspaceStore((s) => s.leftPanelTab)
+  const setLeftPanelTab = useReviewWorkspaceStore((s) => s.setLeftPanelTab)
   const resetPendingReview = usePendingReviewStore((s) => s.reset)
 
   const runPreflight = useRunPreflight()
@@ -165,31 +169,51 @@ export function ReviewWorkspace(): JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      {/* LEFT: AI review map */}
-      {hasPreflight && preflight?.analysis ? (
-        <ReviewMapPanel analysis={preflight.analysis} stale={workspace.preflightStale} />
-      ) : (
-        <aside className="flex w-[300px] shrink-0 flex-col items-center justify-center gap-3 border-r border-border-subtle bg-background p-6 text-center">
-          {preflightRunning ? (
-            <>
-              <Spinner className="h-5 w-5" />
-              <p className="text-[12px] text-text-muted">Building the guided review map…</p>
-            </>
-          ) : (
-            <>
-              <ZapIcon className="h-6 w-6 text-accent" />
-              <p className="text-[13px] font-medium text-text-primary">No preflight analysis yet</p>
-              <p className="text-[12px] text-text-muted">
-                Run preflight to group changes, order files, and surface risks.
-              </p>
-              <Button variant="primary" size="sm" disabled={!codexAvailable} onClick={() => setDismissedPreflight(false)}>
-                Run preflight
-              </Button>
-              {!codexAvailable && <p className="text-[11px] text-warning">Codex is not available.</p>}
-            </>
-          )}
-        </aside>
-      )}
+      {/* LEFT: segments (AI review map) / files */}
+      <aside className="flex w-[300px] shrink-0 flex-col border-r border-border-subtle bg-background">
+        <div className="shrink-0 px-3 pt-3">
+          <div className="flex rounded-lg bg-background-panel p-1">
+            <LeftPanelTabButton
+              active={leftPanelTab === 'segments'}
+              icon={<LayersIcon className="h-3.5 w-3.5" />}
+              label="Segments"
+              onClick={() => setLeftPanelTab('segments')}
+            />
+            <LeftPanelTabButton
+              active={leftPanelTab === 'files'}
+              icon={<SearchIcon className="h-3.5 w-3.5" />}
+              label="Files"
+              onClick={() => setLeftPanelTab('files')}
+            />
+          </div>
+        </div>
+        {leftPanelTab === 'files' ? (
+          <ChangedFilesPanel files={workspace.diff.files} />
+        ) : hasPreflight && preflight?.analysis ? (
+          <ReviewMapPanel analysis={preflight.analysis} stale={workspace.preflightStale} />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+            {preflightRunning ? (
+              <>
+                <Spinner className="h-5 w-5" />
+                <p className="text-[12px] text-text-muted">Building the guided review map…</p>
+              </>
+            ) : (
+              <>
+                <ZapIcon className="h-6 w-6 text-accent" />
+                <p className="text-[13px] font-medium text-text-primary">No preflight analysis yet</p>
+                <p className="text-[12px] text-text-muted">
+                  Run preflight to group changes, order files, and surface risks.
+                </p>
+                <Button variant="primary" size="sm" disabled={!codexAvailable} onClick={() => setDismissedPreflight(false)}>
+                  Run preflight
+                </Button>
+                {!codexAvailable && <p className="text-[11px] text-warning">Codex is not available.</p>}
+              </>
+            )}
+          </div>
+        )}
+      </aside>
 
       {/* CENTRE: diff */}
       <div className="relative flex min-w-0 flex-1 flex-col">
@@ -329,6 +353,34 @@ export function ReviewWorkspace(): JSX.Element {
         prNumber={workspace.pr.number}
       />
     </div>
+  )
+}
+
+function LeftPanelTabButton({
+  active,
+  icon,
+  label,
+  onClick
+}: {
+  active: boolean
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors',
+        active
+          ? 'bg-background-elevated text-text-primary shadow-sm'
+          : 'text-text-muted hover:text-text-secondary'
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }
 
