@@ -11,6 +11,7 @@ import type {
   ListPullRequestsParams,
   ListRepositoriesParams,
   MergePullRequestParams,
+  MergeRequirements,
   MergeResult,
   PaginatedResult,
   PostedComment,
@@ -89,6 +90,8 @@ export interface GitProvider {
   /** Edits an existing conversation or inline review comment. */
   editComment(params: EditCommentParams): Promise<PostedComment>
 
+  /** Branch-rule merge requirements (required approvals, bypass ability). */
+  getMergeRequirements(params: PullRequestRef): Promise<MergeRequirements>
   /** Merges the pull request with the chosen method. */
   mergePullRequest(params: MergePullRequestParams): Promise<MergeResult>
 }

@@ -159,6 +159,7 @@ export function registerIpcHandlers(services: Services): void {
     github.replyToReviewComment(params)
   )
   on(IPC.prs.editComment, EditCommentParamsSchema, (params) => github.editComment(params))
+  on(IPC.prs.mergeRequirements, PullRequestRefSchema, (params) => github.getMergeRequirements(params))
   on(IPC.prs.merge, MergePullRequestParamsSchema, (params) => github.mergePullRequest(params))
 
   // ---- review ----

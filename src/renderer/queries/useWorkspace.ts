@@ -4,6 +4,7 @@ import { queryKeys } from './keys'
 import type {
   GenerateReviewParams,
   MergePullRequestParams,
+  MergeRequirements,
   PullRequestRef,
   RunPreflightParams,
   WorkspaceState
@@ -36,6 +37,17 @@ export function useGenerateReview() {
 export function useInvalidateWorkspace() {
   const qc = useQueryClient()
   return (ref: PullRequestRef) => qc.invalidateQueries({ queryKey: queryKeys.workspace(ref) })
+}
+
+/** Branch-rule merge requirements (required approvals, bypass) for the merge modal. */
+export function useMergeRequirements(ref: PullRequestRef | null, enabled: boolean) {
+  return useQuery<MergeRequirements>({
+    queryKey: ref ? queryKeys.mergeRequirements(ref) : ['mergeRequirements', 'none'],
+    enabled: !!ref && enabled,
+    queryFn: () => api.prs.mergeRequirements(ref as PullRequestRef),
+    staleTime: 15_000,
+    refetchOnWindowFocus: false
+  })
 }
 
 /** Merge the PR, then refresh the workspace so the new (merged) state shows. */

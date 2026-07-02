@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import type { MergeMethod, PullRequestRef } from '@shared/types'
+import type { MergeMethod, MergeRequirements, PullRequestRef } from '@shared/types'
 import { Dialog, DialogContent } from '../ui/Dialog'
 import { Button } from '../ui/Button'
-import { AlertTriangleIcon, XIcon, GitMergeIcon } from '../ui/icons'
+import { AlertTriangleIcon, CheckIcon, XIcon, GitMergeIcon, ShieldIcon } from '../ui/icons'
 import { cn } from '../ui/cn'
-import { useMergePr } from '../../queries/useWorkspace'
+import { useMergePr, useMergeRequirements } from '../../queries/useWorkspace'
 import { useAppStore } from '../../stores/appStore'
 
 const METHODS: { value: MergeMethod; label: string; hint: string; usesMessage: boolean }[] = [
@@ -30,6 +30,7 @@ export function MergeModal({
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [bypass, setBypass] = useState(false)
 
   // Mounted unconditionally — reset local state on open / PR change so stale
   // merge metadata or an old error never carries into a different PR.
@@ -39,11 +40,19 @@ export function MergeModal({
     setTitle('')
     setMessage('')
     setError(null)
+    setBypass(false)
   }, [open, prRef.accountId, prRef.repoId, prRef.number])
 
   const merge = useMergePr(prRef)
+  const requirements = useMergeRequirements(prRef, open)
   const pushToast = useAppStore((s) => s.pushToast)
   const usesMessage = METHODS.find((m) => m.value === method)?.usesMessage ?? false
+
+  // Rule info is advisory: while loading (or if the lookup failed) we don't
+  // block the button — GitHub enforces the rules server-side either way.
+  const rules: MergeRequirements | undefined = requirements.data
+  const blocked = !!rules?.blocked
+  const mergeDisabled = blocked && (!rules.canBypass || !bypass)
 
   async function submit(): Promise<void> {
     setError(null)
@@ -133,6 +142,47 @@ export function MergeModal({
               />
             </div>
           )}
+
+          {blocked && rules && (
+            <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2.5">
+              <div className="flex items-start gap-2.5">
+                <ShieldIcon className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                <div className="min-w-0 space-y-1.5">
+                  <p className="text-[13px] font-medium text-text-primary">
+                    {rules.reviewDecision === 'changes_requested' ? 'Changes requested' : 'Review required'}
+                  </p>
+                  <p className="text-[12px] leading-relaxed text-text-secondary">
+                    {requirementSummary(rules)}
+                  </p>
+                  {rules.canBypass ? (
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={bypass}
+                      onClick={() => setBypass((b) => !b)}
+                      className="flex items-start gap-2 pt-0.5 text-left"
+                    >
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border',
+                          bypass ? 'border-warning bg-warning text-background' : 'border-border-strong bg-background'
+                        )}
+                      >
+                        {bypass && <CheckIcon className="h-2.5 w-2.5" />}
+                      </span>
+                      <span className="text-[12px] text-text-primary">
+                        Merge without waiting for requirements to be met (bypass branch rules)
+                      </span>
+                    </button>
+                  ) : (
+                    <p className="text-[12px] text-text-muted">
+                      You don&apos;t have permission to bypass these rules, so merging is blocked.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-3">
@@ -140,6 +190,12 @@ export function MergeModal({
             {error ? (
               <span className="flex items-center gap-1.5 text-danger">
                 <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" /> {error}
+              </span>
+            ) : requirements.isLoading ? (
+              <span className="text-text-muted">Checking branch rules…</span>
+            ) : blocked && bypass ? (
+              <span className="flex items-center gap-1.5 text-warning">
+                <AlertTriangleIcon className="h-3.5 w-3.5 shrink-0" /> You are bypassing branch rules.
               </span>
             ) : (
               <span className="text-text-muted">This will merge the branch on GitHub.</span>
@@ -149,7 +205,13 @@ export function MergeModal({
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button variant="primary" size="sm" loading={merge.isPending} onClick={() => void submit()}>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={merge.isPending}
+              disabled={mergeDisabled}
+              onClick={() => void submit()}
+            >
               <GitMergeIcon className="h-3.5 w-3.5" /> Confirm merge
             </Button>
           </div>
@@ -157,4 +219,24 @@ export function MergeModal({
       </DialogContent>
     </Dialog>
   )
+}
+
+/** GitHub-style one-line explanation of why merging is blocked. */
+function requirementSummary(rules: MergeRequirements): string {
+  const parts: string[] = []
+  if (rules.approvalsRequired > rules.approvalsGiven) {
+    const n = rules.approvalsRequired
+    parts.push(
+      `At least ${n} approving review${n === 1 ? ' is' : 's are'} required by branch rules — this pull request has ${rules.approvalsGiven}.`
+    )
+  }
+  if (rules.changesRequested > 0) {
+    parts.push(
+      `${rules.changesRequested} reviewer${rules.changesRequested === 1 ? ' has' : 's have'} requested changes.`
+    )
+  }
+  if (parts.length === 0) {
+    parts.push('Branch rules require a review before merging.')
+  }
+  return parts.join(' ')
 }

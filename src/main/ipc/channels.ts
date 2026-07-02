@@ -32,6 +32,7 @@ export const IPC = {
     createComment: 'prs:createComment',
     replyReviewComment: 'prs:replyReviewComment',
     editComment: 'prs:editComment',
+    mergeRequirements: 'prs:mergeRequirements',
     merge: 'prs:merge'
   },
   review: {

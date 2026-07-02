@@ -199,3 +199,26 @@ export interface GhCreatedReview {
   html_url?: string
   submitted_at?: string | null
 }
+
+/** Classic branch protection (admin-only endpoint) — only the fields we evaluate. */
+export interface GhBranchProtection {
+  required_pull_request_reviews?: {
+    required_approving_review_count?: number
+  } | null
+  enforce_admins?: { enabled?: boolean } | null
+}
+
+/** One active rule from the rulesets "rules for a branch" endpoint. */
+export interface GhBranchRule {
+  type: string
+  parameters?: {
+    required_approving_review_count?: number
+  }
+}
+
+/** The viewer's effective permissions on a repository (from repos.get). */
+export interface GhRepoPermissions {
+  admin: boolean
+  maintain: boolean
+  push: boolean
+}

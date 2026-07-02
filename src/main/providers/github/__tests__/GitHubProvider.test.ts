@@ -8,6 +8,8 @@ import type { GitHubAuthService } from '../GitHubAuthService'
 import type { GitHubApiClient } from '../GitHubApiClient'
 import type { SubmitReviewParams } from '../../GitProvider'
 import type {
+  GhBranchProtection,
+  GhBranchRule,
   GhCheckRun,
   GhCommit,
   GhCommitStatus,
@@ -15,6 +17,7 @@ import type {
   GhFile,
   GhLabel,
   GhPullRequest,
+  GhRepoPermissions,
   GhReview,
   GhUser
 } from '../GitHubTypes'
@@ -82,6 +85,9 @@ interface Fakes {
   createReview: ReturnType<typeof vi.fn>
   hasInstallations: ReturnType<typeof vi.fn>
   mergePull: ReturnType<typeof vi.fn>
+  getBranchProtection: ReturnType<typeof vi.fn>
+  getBranchRules: ReturnType<typeof vi.fn>
+  getRepoPermissions: ReturnType<typeof vi.fn>
 }
 
 function buildFakes(): Fakes {
@@ -105,6 +111,11 @@ function buildFakes(): Fakes {
   const createReview = vi.fn<() => Promise<GhCreatedReview>>()
   const hasInstallations = vi.fn<() => Promise<boolean>>()
   const mergePull = vi.fn<() => Promise<{ merged: boolean; sha?: string; message?: string }>>()
+  const getBranchProtection = vi.fn<() => Promise<GhBranchProtection | null>>().mockResolvedValue(null)
+  const getBranchRules = vi.fn<() => Promise<GhBranchRule[]>>().mockResolvedValue([])
+  const getRepoPermissions = vi
+    .fn<() => Promise<GhRepoPermissions>>()
+    .mockResolvedValue({ admin: false, maintain: false, push: true })
 
   const api = {
     listPulls,
@@ -117,7 +128,10 @@ function buildFakes(): Fakes {
     getIssueLabels,
     createReview,
     hasInstallations,
-    mergePull
+    mergePull,
+    getBranchProtection,
+    getBranchRules,
+    getRepoPermissions
   } as unknown as GitHubApiClient
 
   const deps: GitHubProviderDeps = {
@@ -143,7 +157,10 @@ function buildFakes(): Fakes {
     getIssueLabels,
     createReview,
     hasInstallations,
-    mergePull
+    mergePull,
+    getBranchProtection,
+    getBranchRules,
+    getRepoPermissions
   }
 }
 
@@ -496,5 +513,136 @@ describe('GitHubProvider.mergePullRequest', () => {
       code: 'merge_failed',
       recoverable: true
     } satisfies Partial<AppError>)
+  })
+})
+
+describe('GitHubProvider.getMergeRequirements', () => {
+  let f: Fakes
+  let provider: GitHubProvider
+
+  beforeEach(() => {
+    f = buildFakes()
+    provider = new GitHubProvider(f.deps)
+  })
+
+  function review(overrides: Partial<GhReview> & { user: GhUser }): GhReview {
+    return { id: 1, state: 'COMMENTED', submitted_at: '2026-01-01T00:00:00Z', ...overrides }
+  }
+
+  it('reports unblocked when no branch rules exist', async () => {
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({
+      blocked: false,
+      reviewDecision: 'none',
+      approvalsRequired: 0,
+      approvalsGiven: 0,
+      canBypass: false
+    })
+  })
+
+  it('blocks with review_required when a ruleset asks for more approvals than given', async () => {
+    f.getBranchRules.mockResolvedValue([
+      { type: 'pull_request', parameters: { required_approving_review_count: 2 } }
+    ])
+    f.listReviews.mockResolvedValue([
+      review({ user: { login: 'alice' }, state: 'APPROVED' })
+    ])
+
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({
+      blocked: true,
+      reviewDecision: 'review_required',
+      approvalsRequired: 2,
+      approvalsGiven: 1,
+      canBypass: false
+    })
+    expect(f.getBranchRules).toHaveBeenCalledWith(ACCOUNT, OWNER, REPO, 'main')
+  })
+
+  it('is satisfied once enough approvals exist', async () => {
+    f.getBranchRules.mockResolvedValue([
+      { type: 'pull_request', parameters: { required_approving_review_count: 1 } }
+    ])
+    f.listReviews.mockResolvedValue([review({ user: { login: 'alice' }, state: 'APPROVED' })])
+
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({ blocked: false, reviewDecision: 'approved', approvalsGiven: 1 })
+  })
+
+  it('blocks on changes requested even when the approval count is met', async () => {
+    f.getBranchRules.mockResolvedValue([
+      { type: 'pull_request', parameters: { required_approving_review_count: 1 } }
+    ])
+    f.listReviews.mockResolvedValue([
+      review({ id: 1, user: { login: 'alice' }, state: 'APPROVED' }),
+      review({ id: 2, user: { login: 'bob' }, state: 'CHANGES_REQUESTED' })
+    ])
+
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({
+      blocked: true,
+      reviewDecision: 'changes_requested',
+      approvalsGiven: 1,
+      changesRequested: 1
+    })
+  })
+
+  it('uses only the latest stance per reviewer and ignores dismissed reviews and the author', async () => {
+    f.getBranchRules.mockResolvedValue([
+      { type: 'pull_request', parameters: { required_approving_review_count: 1 } }
+    ])
+    f.listReviews.mockResolvedValue([
+      // bob requested changes, then approved — latest wins.
+      review({ id: 1, user: { login: 'bob' }, state: 'CHANGES_REQUESTED', submitted_at: '2026-01-01T00:00:00Z' }),
+      review({ id: 2, user: { login: 'bob' }, state: 'APPROVED', submitted_at: '2026-01-02T00:00:00Z' }),
+      // carol's approval was dismissed — it no longer counts.
+      review({ id: 3, user: { login: 'carol' }, state: 'DISMISSED', submitted_at: '2026-01-03T00:00:00Z' }),
+      // the PR author's review never counts.
+      review({ id: 4, user: { login: 'octocat' }, state: 'APPROVED', submitted_at: '2026-01-04T00:00:00Z' })
+    ])
+
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({
+      blocked: false,
+      reviewDecision: 'approved',
+      approvalsGiven: 1,
+      changesRequested: 0
+    })
+  })
+
+  it('marks admins who can read classic protection as bypassers unless enforce_admins is on', async () => {
+    f.getBranchProtection.mockResolvedValue({
+      required_pull_request_reviews: { required_approving_review_count: 1 },
+      enforce_admins: { enabled: false }
+    })
+
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({ blocked: true, approvalsRequired: 1, canBypass: true })
+
+    f.getBranchProtection.mockResolvedValue({
+      required_pull_request_reviews: { required_approving_review_count: 1 },
+      enforce_admins: { enabled: true }
+    })
+    const enforced = await provider.getMergeRequirements(ref(42))
+    expect(enforced).toMatchObject({ blocked: true, canBypass: false })
+  })
+
+  it('falls back to repo admin permission for ruleset bypass', async () => {
+    f.getBranchRules.mockResolvedValue([
+      { type: 'pull_request', parameters: { required_approving_review_count: 1 } }
+    ])
+    f.getRepoPermissions.mockResolvedValue({ admin: true, maintain: true, push: true })
+
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({ blocked: true, canBypass: true })
+  })
+
+  it('degrades to unblocked when the rule lookups fail', async () => {
+    f.getBranchProtection.mockRejectedValue(appError('github_api_error', 'boom'))
+    f.getBranchRules.mockRejectedValue(appError('github_api_error', 'boom'))
+    f.getRepoPermissions.mockRejectedValue(appError('github_api_error', 'boom'))
+
+    const res = await provider.getMergeRequirements(ref(42))
+    expect(res).toMatchObject({ blocked: false, canBypass: false })
   })
 })

@@ -18,6 +18,7 @@ import type {
   ListPullRequestsParams,
   ListRepositoriesParams,
   MergePullRequestParams,
+  MergeRequirements,
   MergeResult,
   PaginatedResult,
   PostedComment,
@@ -90,6 +91,8 @@ export const reviewMasterApi = {
     replyReviewComment: (params: ReplyReviewCommentParams) =>
       invoke<PostedComment>(IPC.prs.replyReviewComment, params),
     editComment: (params: EditCommentParams) => invoke<PostedComment>(IPC.prs.editComment, params),
+    mergeRequirements: (params: PullRequestRef) =>
+      invoke<MergeRequirements>(IPC.prs.mergeRequirements, params),
     merge: (params: MergePullRequestParams) => invoke<MergeResult>(IPC.prs.merge, params)
   },
   review: {

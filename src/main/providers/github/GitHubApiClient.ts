@@ -4,6 +4,8 @@ import { appError } from '../../../shared/result'
 import { logger } from '../../app/Logger'
 import type { AccountService } from '../../auth/AccountService'
 import type {
+  GhBranchProtection,
+  GhBranchRule,
   GhCheckRun,
   GhCommit,
   GhCommitStatus,
@@ -14,6 +16,7 @@ import type {
   GhLabel,
   GhPullRequest,
   GhRepo,
+  GhRepoPermissions,
   GhReview,
   GhReviewComment,
   GhUser
@@ -544,6 +547,69 @@ export class GitHubApiClient {
         commit_message: params.commit_message
       })
       return { merged: res.data.merged, sha: res.data.sha, message: res.data.message }
+    })
+  }
+
+  // -------------------------------------------------------------------------
+  // Branch rules (merge requirements)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Classic branch protection for a branch. The endpoint is admin-only, so a
+   * 403 (viewer is not a repo admin) and a 404 (branch has no classic
+   * protection) both come back as null — "no protection readable".
+   */
+  async getBranchProtection(
+    accountId: string,
+    owner: string,
+    repo: string,
+    branch: string
+  ): Promise<GhBranchProtection | null> {
+    try {
+      return await this.call(accountId, async (octokit) => {
+        const res = await octokit.rest.repos.getBranchProtection({ owner, repo, branch })
+        return res.data as unknown as GhBranchProtection
+      })
+    } catch (error) {
+      const code = (error as { code?: string })?.code
+      if (code === 'no_permission' || code === 'not_found') return null
+      throw error
+    }
+  }
+
+  /**
+   * Active ruleset rules for a branch (readable with plain read access, unlike
+   * classic protection above). A 404 (rulesets unsupported / repo not found)
+   * maps to "no rules".
+   */
+  async getBranchRules(
+    accountId: string,
+    owner: string,
+    repo: string,
+    branch: string
+  ): Promise<GhBranchRule[]> {
+    try {
+      return await this.call(accountId, async (octokit) => {
+        const res = await octokit.rest.repos.getBranchRules({ owner, repo, branch, per_page: 100 })
+        return res.data as unknown as GhBranchRule[]
+      })
+    } catch (error) {
+      const code = (error as { code?: string })?.code
+      if (code === 'no_permission' || code === 'not_found') return []
+      throw error
+    }
+  }
+
+  /** The viewer's effective permissions on the repo (from repos.get). */
+  async getRepoPermissions(
+    accountId: string,
+    owner: string,
+    repo: string
+  ): Promise<GhRepoPermissions> {
+    return this.call(accountId, async (octokit) => {
+      const res = await octokit.rest.repos.get({ owner, repo })
+      const p = res.data.permissions
+      return { admin: !!p?.admin, maintain: !!p?.maintain, push: !!p?.push }
     })
   }
 

@@ -681,6 +681,28 @@ export interface MergeResult {
   message?: string
 }
 
+/** Overall review state of a PR against its branch rules (GitHub-style). */
+export type MergeReviewDecision = 'approved' | 'changes_requested' | 'review_required' | 'none'
+
+/**
+ * What the base branch's protection rules require before merging, and whether
+ * the viewer satisfies them. Drives the GitHub-style "Review required" warning
+ * and the admin bypass flow in the merge modal.
+ */
+export interface MergeRequirements {
+  /** True when review rules exist and are not yet satisfied. */
+  blocked: boolean
+  reviewDecision: MergeReviewDecision
+  /** Approving reviews the branch rules ask for (0 when no rule applies). */
+  approvalsRequired: number
+  /** Reviewers whose latest standing review is an approval. */
+  approvalsGiven: number
+  /** Reviewers whose latest standing review requests changes. */
+  changesRequested: number
+  /** Whether the viewer can merge anyway (repo admin not bound by the rules). */
+  canBypass: boolean
+}
+
 export interface CreateCommentParams {
   ref: PullRequestRef
   body: string

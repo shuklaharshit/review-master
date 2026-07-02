@@ -9,7 +9,9 @@ import type {
   ListPullRequestsParams,
   ListRepositoriesParams,
   MergePullRequestParams,
+  MergeRequirements,
   MergeResult,
+  MergeReviewDecision,
   PaginatedResult,
   PostedComment,
   PrConversation,
@@ -431,6 +433,75 @@ export class GitHubProvider implements GitProvider {
   // -------------------------------------------------------------------------
   // Merge
   // -------------------------------------------------------------------------
+
+  /**
+   * Evaluates the base branch's review rules against the PR's current reviews,
+   * GitHub-style: classic branch protection (readable only by admins) and
+   * repository rulesets both count; the stricter approval count wins. Rule
+   * lookups degrade to "no rule" on failure so a flaky endpoint never blocks
+   * the merge modal — GitHub still enforces everything server-side.
+   */
+  async getMergeRequirements(params: PullRequestRef): Promise<MergeRequirements> {
+    const raw = await this.api.getPull(params.accountId, params.owner, params.repo, params.number)
+    const baseBranch = raw.base.ref
+    const authorLogin = raw.user?.login ?? undefined
+
+    const [reviews, protection, rules, permissions] = await Promise.all([
+      this.api.listReviews(params.accountId, params.owner, params.repo, params.number),
+      this.api
+        .getBranchProtection(params.accountId, params.owner, params.repo, baseBranch)
+        .catch(() => null),
+      this.api
+        .getBranchRules(params.accountId, params.owner, params.repo, baseBranch)
+        .catch(() => []),
+      this.api
+        .getRepoPermissions(params.accountId, params.owner, params.repo)
+        .catch(() => ({ admin: false, maintain: false, push: false }))
+    ])
+
+    // A reviewer's stance is their latest APPROVED / CHANGES_REQUESTED review.
+    // Dismissed reviews show up as DISMISSED in the list, so folding in
+    // submitted order naturally drops them; COMMENTED never changes a stance.
+    const stances = new Map<string, 'APPROVED' | 'CHANGES_REQUESTED'>()
+    const chronological = [...reviews].sort(
+      (a, b) => (Date.parse(a.submitted_at ?? '') || 0) - (Date.parse(b.submitted_at ?? '') || 0)
+    )
+    for (const review of chronological) {
+      const login = review.user?.login
+      if (!login || login === authorLogin) continue
+      if (review.state === 'APPROVED' || review.state === 'CHANGES_REQUESTED') {
+        stances.set(login, review.state)
+      }
+    }
+    const approvalsGiven = [...stances.values()].filter((s) => s === 'APPROVED').length
+    const changesRequested = [...stances.values()].filter((s) => s === 'CHANGES_REQUESTED').length
+
+    const protectionReviews = protection?.required_pull_request_reviews ?? null
+    const pullRequestRule = rules.find((r) => r.type === 'pull_request')
+    const requiresReview = !!protectionReviews || !!pullRequestRule
+    const approvalsRequired = Math.max(
+      // Classic protection with a review rule defaults to 1 approval.
+      protectionReviews ? (protectionReviews.required_approving_review_count ?? 1) : 0,
+      pullRequestRule?.parameters?.required_approving_review_count ?? 0
+    )
+
+    let reviewDecision: MergeReviewDecision = 'none'
+    if (changesRequested > 0) reviewDecision = 'changes_requested'
+    else if (requiresReview && approvalsGiven < approvalsRequired) reviewDecision = 'review_required'
+    else if (approvalsGiven > 0) reviewDecision = 'approved'
+
+    const blocked = requiresReview && (approvalsGiven < approvalsRequired || changesRequested > 0)
+
+    // Being able to read classic protection proves the viewer is an admin, and
+    // classic rules bind admins only when enforce_admins is on. For rulesets we
+    // can't read the bypass list, so repo admin is the pragmatic proxy — a
+    // wrong guess just surfaces GitHub's 405 message on the merge attempt.
+    const canBypass = protection
+      ? protection.enforce_admins?.enabled !== true
+      : permissions.admin
+
+    return { blocked, reviewDecision, approvalsRequired, approvalsGiven, changesRequested, canBypass }
+  }
 
   async mergePullRequest(params: MergePullRequestParams): Promise<MergeResult> {
     const { ref } = params
